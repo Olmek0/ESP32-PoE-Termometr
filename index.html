@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <link rel="stylesheet" type="text/css" href="styl.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="Page">
+    <div class="Title">
+        <div class="Titletext">Projekt - termometr</div>
+        <div class="OptionsBar">
+            <div id="OptText">Opcje</div>
+            <ul id="Options">
+                <li>°C °F</li>
+                <li><a href="Acc.html">Konto</a></li>
+                <li><a href="Set.html">Ustaw.</a></li>
+                <li><a href="Inf.html">Info.</a></li>
+
+            </ul>
+        </div>
+    </div>
+    <div class = 'TempStat'>
+        <div class = 'Temp'>
+                <div>Obecna Temperatura</div>
+                <div>20°C</div>
+                <div>Data </div>
+        </div>
+        <div class = 'Stat'>
+                <div>Ilość odczytów - 100</div>
+                <div>Najwyższa temperatura - 25°C</div>
+                <div>Najniższa temperatura - 5°C</div>
+                <div>Odczyty wprowadzone od - data </div>
+        </div>
+    </div>
+    <div class="Bottom">
+        <nav class="Navbar">
+            <div class="active" onclick="toggleCha('Dzisiaj', yValues, xValues, this)">Dzisiaj</div>
+            <div onclick="toggleCha('W miesiącu', yValues2,xValues2, this)">W miesiącu</div>
+            <div >Historia</div>
+        </nav>
+
+        <section class="Summary">
+            <div class="Time">DZISIAJ</div>
+            <div class="TempTimeStat">
+                TEMPERATURA<br><span class="red">MIN: </span>13.7°C | <span class="red">ŚRD: </span>14.9°C | <span class="red">MAKS:</span> 16.3°C
+            </div>
+        </section>
+        <div class="Charts">
+            <canvas id="TempCha"></canvas>
+        </div>
+    </div>
+    
+        <footer>@Footer</footer>
+    </div>
+<script src="skrypt.js"></script>
+</body>
+</html>
