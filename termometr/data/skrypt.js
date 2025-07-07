@@ -87,3 +87,17 @@ window.addEventListener('DOMContentLoaded', () => {
     const defaultTab = document.querySelector('.Navbar div.active');
     toggleCha('Dzisiaj', yValues, xValues, defaultTab);
 });
+
+    let socket = new WebSocket("ws://" + location.hostname + ":81/");
+
+    socket.onmessage = function(event) {
+      document.getElementById("temp").textContent = event.data + " °C";
+    };
+
+    socket.onopen = function() {
+      console.log("WebSocket connected");
+    };
+
+    socket.onclose = function() {
+      console.log("WebSocket disconnected");
+    };
