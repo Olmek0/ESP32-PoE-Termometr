@@ -81,6 +81,7 @@ function toggleCha(title, datay, datax, clickedElement) {
     // Create chart
     createCha(title, datax, datay);
     
+	document.querySelector('.Time').textContent = title.toUpperCase();
 }
 
 window.addEventListener('DOMContentLoaded', () => {
@@ -91,7 +92,7 @@ window.addEventListener('DOMContentLoaded', () => {
     let socket = new WebSocket("ws://" + location.hostname + ":81/");
 
     socket.onmessage = function(event) {
-      document.getElementById("temp").textContent = event.data + " °C";
+      document.getElementById("temp").textContent = event.data + "°C";
     };
 
     socket.onopen = function() {
