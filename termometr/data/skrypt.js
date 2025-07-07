@@ -102,3 +102,12 @@ window.addEventListener('DOMContentLoaded', () => {
     socket.onclose = function() {
       console.log("WebSocket disconnected");
     };
+	
+	
+let date = new Intl.DateTimeFormat("pl-PL", { 
+	day: "2-digit",
+	month: "2-digit",
+	year: "numeric"
+}).format(new Date());
+
+document.getElementById("data").innerHTML = date;
