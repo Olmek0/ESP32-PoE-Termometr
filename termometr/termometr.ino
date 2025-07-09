@@ -27,6 +27,7 @@ const int Temp = 32;
 OneWire oneWire(Temp);
 DallasTemperature sensors(&oneWire);
 String temperature;
+String temperature_f;
 
 //// FUNKCJE ////
 
@@ -76,7 +77,6 @@ void handleRoot(String path, String content) {
 void initDatabase() {
   String dbPath = "/sdcard/temperature.db";
 
-  // Open database
   if (sqlite3_open("/sdcard/temperature.db", &db)) {
     Serial.printf("[DB ERROR] %s\n", sqlite3_errmsg(db));
     return;
@@ -84,9 +84,10 @@ void initDatabase() {
 
   // Create table if not exists
   const char *create_table_sql = R"sql(
-    CREATE TABLE IF NOT EXISTS logs (
+    CREATE TABLE IF NOT EXISTS logs1 (
       timestamp TEXT NOT NULL,
-      temperature REAL NOT NULL
+      temperature_c REAL NOT NULL,
+      temperature_f REAL NOT NULL
     );
   )sql";
 
@@ -115,13 +116,13 @@ String getTimestamp() {
 
 // 
 
-void logTemperature(float tempC, const String& timestamp) {
+void logTemperature(float tempC, float tempF, const String& timestamp) {
   if (sqlite3_open("/sdcard/temperature.db", &db)) {
     Serial.println("[DB ERROR] Failed to open database");
     return;
   }
 
-  String query = "INSERT INTO logs (timestamp, temperature) VALUES ('" + timestamp + "', " + String(tempC, 2) + ");";
+  String query = "INSERT INTO logs1 (timestamp, temperature_c, temperature_f) VALUES ('" + timestamp + "', " + String(tempC, 2) + "," + String(tempF, 2) + ");";
 
   int rc = sqlite3_exec(db, query.c_str(), NULL, 0, &zErrMsg);
   if (rc != SQLITE_OK) {
@@ -133,6 +134,55 @@ void logTemperature(float tempC, const String& timestamp) {
 
   sqlite3_close(db);
 }
+
+//
+
+void sendStatsOverWebSocket() {
+  if (sqlite3_open("/sdcard/temperature.db", &db)) {
+    Serial.println("[DB ERROR] Failed to open database for stats");
+    return;
+  }
+  const char* Query = R"sql(
+    SELECT 
+      COUNT(*) AS total,
+      MAX(temperature_c) AS max_temp,
+      MIN(temperature_c) AS min_temp,
+      MAX(temperature_f) AS max_tempf,
+      MIN(temperature_f) AS min_tempf,
+      MIN(timestamp) AS first_entry
+    FROM logs1;
+  )sql";
+
+  sqlite3_stmt *stmt;
+  int rc = sqlite3_prepare_v2(db, Query, -1, &stmt, NULL);
+
+  if (rc != SQLITE_OK) {
+    Serial.printf("[DB ERROR] Query failed: %s\n", sqlite3_errmsg(db));
+    sqlite3_close(db);
+    return;
+  }
+
+  if (sqlite3_step(stmt) == SQLITE_ROW) {
+    int total = sqlite3_column_int(stmt, 0);
+    float maxTemp = sqlite3_column_double(stmt, 1);
+    float minTemp = sqlite3_column_double(stmt, 2);
+    float maxTempf = sqlite3_column_double(stmt, 3);
+    float minTempf = sqlite3_column_double(stmt, 4);
+    const unsigned char* firstEntry = sqlite3_column_text(stmt, 5);
+
+    String start = firstEntry ? String((const char*)firstEntry) : "unknown";
+
+    String statsJson = "{\"total\":" + String(total) + ",\"max\":" + String(maxTemp) + ",\"min\":" + String(minTemp) + ",\"maxf\":" + String(maxTempf) + ",\"minf\":" + String(minTempf)
+    + ",\"start\":\"" + start + "\"}";
+
+    webSocket.broadcastTXT(statsJson);
+  }
+
+  sqlite3_finalize(stmt);
+  sqlite3_close(db);
+}
+
+
 
 //// PROGRAM
 
@@ -183,8 +233,12 @@ void setup() {
     if (type == WStype_CONNECTED) {
       Serial.println("[WS] Client connected");
       
-      String initialTemp = String(sensors.getTempCByIndex(0));
-      webSocket.sendTXT(num, initialTemp);
+      String tempC = String(sensors.getTempCByIndex(0));
+      String tempF = String(sensors.getTempFByIndex(0));
+      String temp = "{\"c\":" + tempC + ",\"f\":" + tempF + "}";
+      webSocket.broadcastTXT(temp);
+      sendStatsOverWebSocket();
+
     } else if (type == WStype_DISCONNECTED) {
       Serial.println("[WS] Client disconnected");
     }
@@ -199,7 +253,7 @@ void setup() {
 unsigned long lastTempRequest = 0;
 unsigned long lastDbInsert = 0;
 const unsigned long tempInterval = 5000;
-const unsigned long dbInsertInterval = 300000;
+const unsigned long dbInsertInterval = 30000;
 
 void loop() {
   server.handleClient();
@@ -208,16 +262,19 @@ void loop() {
     lastTempRequest = millis();
     sensors.requestTemperatures();
     temperature = String(sensors.getTempCByIndex(0));
-    webSocket.broadcastTXT(temperature);
-    Serial.println("Temperature: " + temperature + "°C");
+    temperature_f = String(sensors.getTempFByIndex(0));
+    String tempJson = "{\"c\":" + temperature + ",\"f\":" + temperature_f + "}";
+    webSocket.broadcastTXT(tempJson);
+    Serial.println("Temperature: " + temperature + "°C / " + temperature_f + "°F");
   }
   
   if (millis() - lastDbInsert >= dbInsertInterval) {
     lastDbInsert = millis();
     sensors.requestTemperatures();
-    float tempVal = sensors.getTempCByIndex(0);
+    float tempValc = sensors.getTempCByIndex(0);
+    float tempValf = sensors.getTempFByIndex(0);
     String timestamp = getTimestamp();
-    logTemperature(tempVal, timestamp);
-    Serial.println("[DB] Logged temperature: " + String(tempVal) + " at " + timestamp);
+    logTemperature(tempValc, tempValf, timestamp);
+    Serial.println("[DB] Logged temperature: " + String(tempValc) + " / " + String(tempValf) + " at " + timestamp);
   }
 }

@@ -74,11 +74,9 @@ function createCha(title, datax, datay) {
     });
 }
 function toggleCha(title, datay, datax, clickedElement) {
-    // Update active state
     document.querySelectorAll('.Navbar div').forEach(el => el.classList.remove('active'));
     clickedElement.classList.add('active');
 
-    // Create chart
     createCha(title, datax, datay);
     
 	document.querySelector('.Time').textContent = title.toUpperCase();
@@ -89,21 +87,61 @@ window.addEventListener('DOMContentLoaded', () => {
     toggleCha('Dzisiaj', yValues, xValues, defaultTab);
 });
 
-    let socket = new WebSocket("ws://" + location.hostname + ":81/");
+let useFahrenheit = false;
+let latestTempC = null;
+let latestTempF = null;
 
-    socket.onmessage = function(event) {
-      document.getElementById("temp").textContent = event.data + "°C";
-    };
+const socket = new WebSocket('ws://' + location.hostname + ':81/');
 
-    socket.onopen = function() {
-      console.log("WebSocket connected");
-    };
+let statData = {};
 
-    socket.onclose = function() {
-      console.log("WebSocket disconnected");
+socket.onmessage = function(event) {
+    try {
+        const data = JSON.parse(event.data);
+
+        // Check if it contains stats or live temps
+        if (data.total !== undefined) {
+            statData = data;
+            updateStatsDisplay();
+        } else {
+            latestTempC = data.c;
+            latestTempF = data.f;
+            updateDisplayedTemp();
+        }
+    } catch (e) {
+        console.error("Invalid JSON from socket", e);
+    }
+};
+
+function getUnit() {
+    const unit = useFahrenheit ? "°F" : "°C";
+    return {
+        unit,
+        temp: useFahrenheit ? latestTempF : latestTempC,
+        max: useFahrenheit ? statData.maxf : statData.max,
+        min: useFahrenheit ? statData.minf : statData.min
     };
+}
+
+function updateStatsDisplay() {
+    const { unit, max, min } = getUnit();
 	
-	
+    document.getElementById("stat-total").textContent = `Ilość odczytów - ${statData.total}`;
+    document.getElementById("stat-max").textContent = `Najwyższa temperatura - ${max.toFixed(1)}${unit}`;
+    document.getElementById("stat-min").textContent = `Najniższa temperatura - ${min.toFixed(1)}${unit}`;
+    document.getElementById("stat-start").textContent = `Odczyty wprowadzone od - ${statData.start}`;
+}
+
+function updateDisplayedTemp() {
+	const { temp, unit } = getUnit();
+    document.getElementById("temp").textContent = temp + unit;
+}
+document.getElementById("toggleUnit").addEventListener("click", () => {
+    useFahrenheit = !useFahrenheit;
+    updateDisplayedTemp();
+    updateStatsDisplay(); 
+});
+
 let date = new Intl.DateTimeFormat("pl-PL", { 
 	day: "2-digit",
 	month: "2-digit",
