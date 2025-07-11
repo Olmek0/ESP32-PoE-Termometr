@@ -7,7 +7,6 @@
 #include <SD_MMC.h>
 #include "FS.h"
 #include "sqlite3.h"
-#include <ezTime.h>
 #include <WebSocketsServer.h>
 
 
@@ -149,8 +148,8 @@ void sendStatsOverWebSocket() {
       MIN(temperature_c) AS min_temp,
       MAX(temperature_f) AS max_tempf,
       MIN(temperature_f) AS min_tempf,
-      MIN(timestamp) AS first_entry
-    FROM logs1;
+      DATE(MIN(timestamp)) AS first_entry
+    FROM logs1;                                                                       
   )sql";
 
   sqlite3_stmt *stmt;
@@ -219,6 +218,8 @@ void setup() {
   }
   Serial.println();
   
+  waitForSync();
+  Serial.println("Time synced: " + getTimestamp());
 
   configTzTime("CET-1CEST,M3.5.0/2,M10.5.0/3", "pool.ntp.org");
 

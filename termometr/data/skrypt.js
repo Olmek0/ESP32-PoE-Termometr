@@ -143,10 +143,10 @@ function getUnit() {
 function updateStatsDisplay() {
     const { unit, max, min } = getUnit();
 	
-    document.getElementById("stat-total").textContent = 'Ilość odczytów - ${statData.total}';
-    document.getElementById("stat-max").textContent = 'Najwyższa temperatura - ${max.toFixed(1)}${unit}';
-    document.getElementById("stat-min").textContent = 'Najniższa temperatura - ${min.toFixed(1)}${unit}';
-    document.getElementById("stat-start").textContent = 'Odczyty wprowadzone od - ${statData.start}';
+    document.getElementById("stat-total").textContent = `Ilość odczytów - ${statData.total}`;
+    document.getElementById("stat-max").textContent = `Najwyższa temperatura - ${max.toFixed(1)}${unit}`;
+    document.getElementById("stat-min").textContent = `Najniższa temperatura - ${min.toFixed(1)}${unit}`;
+    document.getElementById("stat-start").textContent = `Odczyty wprowadzone od - ${statData.start}`;
 }
 
 function updateDisplayedTemp() {
