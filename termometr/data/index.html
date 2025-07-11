@@ -9,51 +9,49 @@
 </head>
 <body>
     <div class="Page">
-    <div class="Title">
-        <div class="Titletext">Projekt - termometr</div>
-        <div class="OptionsBar">
-            <div id="OptText">Opcje</div>
-            <ul id="Options">
-                <li id="toggleUnit">°C °F</li>
-                <li><a href="Acc.html">Konto</a></li>
-                <li><a href="Set.html">Ustaw.</a></li>
-                <li><a href="Inf.html">Info.</a></li>
-
-            </ul>
-        </div>
-    </div>
-    <div class = 'TempStat'>
-        <div class = 'Temp'>
-                <div>Obecna Temperatura</div>
-                <div id='temp'>Ładowanie...</div>
-                <div id='data'>Ładowanie...</div>
-        </div>
-        <div class = 'Stat'>
-                <div id='stat-total'>Ilość odczytów - 100</div>
-                <div id='stat-max'>Najwyższa temperatura - 25°C</div>
-                <div id='stat-min'>Najniższa temperatura - 5°C</div>
-                <div id='stat-start'>Odczyty wprowadzone od - data </div>
-        </div>
-    </div>
-    <div class="Bottom">
-        <nav class="Navbar">
-            <div class="active" onclick="toggleCha('Dzisiaj', yValues, xValues, this)">Dzisiaj</div>
-            <div onclick="toggleCha('W miesiącu', yValues2,xValues2, this)">W miesiącu</div>
-            <div >Historia</div>
-        </nav>
-
-        <section class="Summary">
-            <div class="Time">DZISIAJ</div>
-            <div class="TempTimeStat">
-                TEMPERATURA<br><span class="red">MIN: </span>13.7°C | <span class="red">ŚRD: </span>14.9°C | <span class="red">MAKS:</span> 16.3°C
+        <div class="Title">
+            <div id="Titletext">Projekt - termometr</div>
+            <div id="toggleUnit" onclick="">°C</div>
+            <div class="OptionsBar">
+                <div id="OptText">Opcje</div>
+                <ul id="Options">
+                    <li><a href="Acc.html">Konto</a></li>
+                    <li><a href="Set.html">Ustaw.</a></li>
+                    <li><a href="Inf.html">Info.</a></li>
+                </div>
             </div>
-        </section>
-        <div class="Charts" >
-            <canvas id="TempCha"></canvas>
+        <div class = 'TempStat'>
+            <div class = 'Temp'>
+                    <div>Obecna Temperatura</div>
+                    <div id='temp'>Ładowanie...</div>
+                    <div id='data'>Ładowanie...</div>
+            </div>
+            <div class = 'Stat'>
+                <div id='stat-total'>Ładowanie...</div>
+                <div id='stat-max'>Ładowanie...</div>
+                <div id='stat-min'>Ładowanie...</div>
+                <div id='stat-start'>Ładowanie...</div>
+            </div>
         </div>
-    </div>
+        <div class="Bottom">
+            <nav class="Navbar">
+                <div class="active" onclick="toggleCha('Dzisiaj', yValues, xValues, this)">Dzisiaj</div>
+                <div onclick="toggleCha('W miesiącu', yValues2,xValues2, this)">W miesiącu</div>
+                <div >Historia</div>
+            </nav>
+
+            <section class="Summary">
+                <div class="Time">DZISIAJ</div>
+                <div class="TempTimeStat">
+                    TEMPERATURA<br><span class="red">MIN: </span>13.7°C | <span class="red">ŚRD: </span>14.9°C | <span class="red">MAKS:</span> 16.3°C
+                </div>
+            </section>
+            <div class="Charts" >
+                <canvas id="TempCha"></canvas>
+            </div>
+        </div>
     
     </div>
-<script src="skrypt.js"></script>
+    <script src="skrypt.js"></script>
 </body>
 </html>
