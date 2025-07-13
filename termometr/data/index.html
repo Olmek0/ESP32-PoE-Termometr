@@ -11,15 +11,16 @@
     <div class="Page">
         <div class="Title">
             <div id="Titletext">Projekt - termometr</div>
-            <div id="toggleUnit" onclick="">°C</div>
+            <div id="toggleUnit"><span>°C</span></div>
             <div class="OptionsBar">
                 <div id="OptText">Opcje</div>
                 <ul id="Options">
                     <li><a href="Acc.html">Konto</a></li>
                     <li><a href="Set.html">Ustaw.</a></li>
                     <li><a href="Inf.html">Info.</a></li>
-                </div>
+                </ul>
             </div>
+        </div>
         <div class = 'TempStat'>
             <div class = 'Temp'>
                     <div>Obecna Temperatura</div>
@@ -47,7 +48,9 @@
                 </div>
             </section>
             <div class="Charts" >
-                <canvas id="TempCha"></canvas>
+                <div id="A">
+                <span><canvas id="TempCha"></canvas></span>
+                </div>
             </div>
         </div>
     

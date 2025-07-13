@@ -13,12 +13,10 @@ let chartInstance = null;
 function createCha(title, datax, datay) {
     const ctx = document.getElementById('TempCha').getContext('2d');
     
-    // Destroy old chart if it exists
     if (chartInstance) {
         chartInstance.destroy();
     }
 
-    // Create new chart
     chartInstance = new Chart(ctx, {
         type: 'line',
         data: {
@@ -74,25 +72,54 @@ function createCha(title, datax, datay) {
     });
 }
 function toggleCha(title, datay, datax, clickedElement) {
-    document.querySelectorAll('.Navbar div').forEach(el => el.classList.remove('active'));
-    clickedElement.classList.add('active');
-
-    createCha(title, datax, datay);
+    const chartCanvas = document.getElementById('TempCha');
+    const timeElement = document.querySelector('.Time');
+    const tempStatsElement = document.querySelector('.TempTimeStat');
     
-	document.querySelector('.Time').textContent = title.toUpperCase();
+    chartCanvas.classList.add('fade-out');
+    timeElement.classList.add('fade-out');
+    tempStatsElement.classList.add('fade-out');
+    
+    setTimeout(() => {
+        document.querySelectorAll('.Navbar div').forEach(el => el.classList.remove('active'));
+        clickedElement.classList.add('active');
+        
+        createCha(title, datax, datay);
+        
+        updateTemperatureStats();
+        
+        chartCanvas.classList.remove('fade-out');
+        timeElement.classList.remove('fade-out');
+        tempStatsElement.classList.remove('fade-out');
+    }, 500);
 }
 
 window.addEventListener('DOMContentLoaded', () => {
     const defaultTab = document.querySelector('.Navbar div.active');
     toggleCha('Dzisiaj', yValues, xValues, defaultTab);
+   
+    const optionsBar = document.querySelector('.OptionsBar');
+    const optionsMenu = document.getElementById('Options');
+    
+    optionsBar.addEventListener('click', function(e) {
+        e.stopPropagation();
+        optionsMenu.classList.toggle('show');
+    });
+    document.addEventListener('click', function() {
+        optionsMenu.classList.remove('show');
+        e.stopPropagation();
+        optionsBar.classList.toggle('active');
+    });
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            optionsMenu.classList.remove('show');
+        }
+    });
 });
-
-
 
 let useFahrenheit = false;
 let latestTempC = null;
 let latestTempF = null;
-
 
 let statData = {};
 
@@ -128,7 +155,6 @@ try {
   console.warn("WebSocket not initialized:", e.message);
 }
 
-WebSockA();
 
 function getUnit() {
     const unit = useFahrenheit ? "°F" : "°C";
@@ -144,8 +170,8 @@ function updateStatsDisplay() {
     const { unit, max, min } = getUnit();
 	
     document.getElementById("stat-total").textContent = `Ilość odczytów - ${statData.total}`;
-    document.getElementById("stat-max").textContent = `Najwyższa temperatura - ${max.toFixed(1)}${unit}`;
-    document.getElementById("stat-min").textContent = `Najniższa temperatura - ${min.toFixed(1)}${unit}`;
+    document.getElementById("stat-max").textContent = `Najwyższa temperatura - ${max}${unit}`;
+    document.getElementById("stat-min").textContent = `Najniższa temperatura - ${min}${unit}`;
     document.getElementById("stat-start").textContent = `Odczyty wprowadzone od - ${statData.start}`;
 }
 
@@ -153,6 +179,31 @@ function updateDisplayedTemp() {
 	const { temp, unit } = getUnit();
     document.getElementById("temp").textContent = temp + unit;
 }
+
+function updateTemperatureStats() {
+    const activeTab = document.querySelector('.Navbar div.active');
+    let datay, title;
+    
+    if (activeTab.textContent.includes('Dzisiaj')) {
+        datay = yValues;
+        title = 'Dzisiaj';
+    } else if (activeTab.textContent.includes('W miesiącu')) {
+        datay = yValues2;
+        title = 'W miesiącu';
+    }
+    
+    const minTemp = Math.min(...datay);
+    const maxTemp = Math.max(...datay);
+    const avgTemp = (datay.reduce((a, b) => a + b, 0) / datay.length).toFixed(2);
+    const unit = useFahrenheit ? '°F' : '°C';
+    
+    document.querySelector('.Time').textContent = title.toUpperCase();
+    document.querySelector('.TempTimeStat').innerHTML = 
+        `TEMPERATURA<br><span class="red">MIN: </span>${minTemp}${unit} | ` +
+        `<span class="red">ŚRD: </span>${avgTemp}${unit} | ` +
+        `<span class="red">MAKS:</span> ${maxTemp}${unit}`;
+}
+
 function WebSock() {
     WebSockA();
     document.getElementById("toggleUnit").addEventListener("click", () => {
@@ -164,13 +215,32 @@ function WebSock() {
 function WebSockA() {
     document.getElementById("toggleUnit").addEventListener("click", () => {
         useFahrenheit = !useFahrenheit;
-        useFahrenheit ? document.getElementById("toggleUnit").textContent="°F" : document.getElementById("toggleUnit").textContent="°C";
+        const text = useFahrenheit ? "°F" : "°C";
+        fadeText(document.getElementById("toggleUnit"), text);
+        updateTemperatureStats()
     });
 }
+
+WebSockA();
+
+function fadeText(element, newText) {
+    const span = element.querySelector('span');
+
+    span.classList.add('fade-out');
+    
+    setTimeout(() => {
+        span.textContent = newText;
+        span.classList.remove('fade-out');
+        span.classList.add('fade-in');
+        
+        setTimeout(() => {
+            span.classList.remove('fade-in');
+        }, 300);
+    }, 300);
+}
+
 let date = new Intl.DateTimeFormat("pl-PL", { 
-	day: "2-digit",
-	month: "2-digit",
-	year: "numeric"
+	day: "2-digit", month: "2-digit", year: "numeric"
 }).format(new Date());
 
 document.getElementById("data").innerHTML = date;

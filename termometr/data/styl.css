@@ -44,8 +44,25 @@ a:link, a:visited {
     cursor: pointer;
     display: flex;
     align-items: center;
+    user-select: none;
+}
+#toggleUnit {
+  position: relative;
+  overflow: hidden;
 }
 
+#toggleUnit span {
+  display: inline-block;
+  transition: opacity 0.4s ease-in-out;
+}
+
+#toggleUnit .fade-out {
+  opacity: 0;
+}
+
+#toggleUnit .fade-in {
+  opacity: 1;
+}
 #toggleUnit:hover {
     background-color: rgb(212, 178, 104);
     transition-delay: 150ms;
@@ -59,7 +76,7 @@ a:link, a:visited {
     display: flex;
     border-left: solid 1px white;
     justify-content: center; 
-    width: 175px;
+    width: 175px;user-select: none;
 }
 #OptText {
     text-align: center; 
@@ -76,6 +93,7 @@ a:link, a:visited {
     opacity: 0;
     box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
     visibility: hidden;
+    transition: opacity 0.3s ease, visibility 0.3s ease;
 }
 #Options li {
     padding: 10px;
@@ -86,17 +104,19 @@ a:link, a:visited {
     transition-delay: 150ms;
     background-color: rgb(212, 178, 104);
 }
+.OptionsBar.active {
+    background-color: rgb(212, 178, 104);
+}
 .OptionsBar:active #Options{
     visibility: visible;
     opacity: 1;
 }
-.OptionsBar:hover #Options {
-    transition-delay: 150ms;
-    opacity: 1;
-    visibility: visible;
-}
 #Options li:hover {
     background-color: rgb(212, 178, 104);
+}
+#Options.show {
+    opacity: 1;
+    visibility: visible;
 }
 .TempStat {
     margin-top: 20px;
@@ -126,6 +146,7 @@ a:link, a:visited {
 .Stat div {
     padding: 5px;
 }
+
 #TempCha {
     height: auto; 
     display: block;
@@ -135,7 +156,13 @@ a:link, a:visited {
     margin-bottom: 1px;
     box-shadow: 0px 4px 8px 0px rgba(0,0,0,0.2);
     background-color: white;
+    opacity: 1;
+    transition: opacity 0.4s ease-in-out;
 }
+#TempCha.fade-out {
+    opacity: 0;
+}
+
 .Charts {
     margin-bottom: -5px;
 }
@@ -146,6 +173,7 @@ a:link, a:visited {
     background-color: rgb(212, 178, 104);
     align-items: center;
     color: white;
+    user-select: none;
 }
 .Bottom {
     margin: 20px;
@@ -179,9 +207,14 @@ a:link, a:visited {
     font-size: 24px;
     font-weight: bold;
     margin-bottom: 15px;
+    transition: opacity 0.4s ease-in-out;
 }
-
+.Time.fade-out,
+.TempTimeStat.fade-out {
+    opacity: 0;
+}
 .TempTimeStat {
+    transition: opacity 0.4s ease-in-out;
     font-size: 18px;
     color: #333;
 }
