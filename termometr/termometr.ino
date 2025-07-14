@@ -9,7 +9,6 @@
 #include "sqlite3.h"
 #include <WebSocketsServer.h>
 
-
 //// INICJALIZACJA ////
 
 #define FILESYSTEM LittleFS
@@ -25,8 +24,11 @@ bool eth_connected = false;
 const int Temp = 32;
 OneWire oneWire(Temp);
 DallasTemperature sensors(&oneWire);
-String temperature;
-String temperature_f;
+
+struct TempPair {
+  String c;
+  String f;
+};
 
 //// FUNKCJE ////
 
@@ -83,7 +85,7 @@ void initDatabase() {
 
   // Create table if not exists
   const char *create_table_sql = R"sql(
-    CREATE TABLE IF NOT EXISTS logs1 (
+    CREATE TABLE IF NOT EXISTS logs2 (
       timestamp TEXT NOT NULL,
       temperature_c REAL NOT NULL,
       temperature_f REAL NOT NULL
@@ -121,7 +123,7 @@ void logTemperature(float tempC, float tempF, const String& timestamp) {
     return;
   }
 
-  String query = "INSERT INTO logs1 (timestamp, temperature_c, temperature_f) VALUES ('" + timestamp + "', " + String(tempC, 2) + "," + String(tempF, 2) + ");";
+  String query = "INSERT INTO logs2 (timestamp, temperature_c, temperature_f) VALUES ('" + timestamp + "', " + String(tempC, 2) + "," + String(tempF, 2) + ");";
 
   int rc = sqlite3_exec(db, query.c_str(), NULL, 0, &zErrMsg);
   if (rc != SQLITE_OK) {
@@ -149,7 +151,7 @@ void sendStatsOverWebSocket() {
       MAX(temperature_f) AS max_tempf,
       MIN(temperature_f) AS min_tempf,
       DATE(MIN(timestamp)) AS first_entry
-    FROM logs1;                                                                       
+    FROM logs2;                                                                       
   )sql";
 
   sqlite3_stmt *stmt;
@@ -181,7 +183,15 @@ void sendStatsOverWebSocket() {
   sqlite3_close(db);
 }
 
+TempPair GetTemperature(){
+    TempPair temp;
+    temp.c = String(sensors.getTempCByIndex(0));
+    temp.f = String(sensors.getTempFByIndex(0));
+    String js = "{\"c\":" + temp.c + ",\"f\":" + temp.f + "}";
+    webSocket.broadcastTXT(js);
 
+    return temp;
+}
 
 //// PROGRAM
 
@@ -218,9 +228,6 @@ void setup() {
   }
   Serial.println();
   
-  waitForSync();
-  Serial.println("Time synced: " + getTimestamp());
-
   configTzTime("CET-1CEST,M3.5.0/2,M10.5.0/3", "pool.ntp.org");
 
   server.on("/", HTTP_GET, []() {handleRoot("/index.html","text/html"); });
@@ -233,11 +240,7 @@ void setup() {
   webSocket.onEvent([](uint8_t num, WStype_t type, uint8_t *payload, size_t length) {
     if (type == WStype_CONNECTED) {
       Serial.println("[WS] Client connected");
-      
-      String tempC = String(sensors.getTempCByIndex(0));
-      String tempF = String(sensors.getTempFByIndex(0));
-      String temp = "{\"c\":" + tempC + ",\"f\":" + tempF + "}";
-      webSocket.broadcastTXT(temp);
+      TempPair temp = GetTemperature();
       sendStatsOverWebSocket();
 
     } else if (type == WStype_DISCONNECTED) {
@@ -254,7 +257,7 @@ void setup() {
 unsigned long lastTempRequest = 0;
 unsigned long lastDbInsert = 0;
 const unsigned long tempInterval = 5000;
-const unsigned long dbInsertInterval = 30000;
+const unsigned long dbInsertInterval = 300000;
 
 void loop() {
   server.handleClient();
@@ -262,11 +265,8 @@ void loop() {
   if (millis() - lastTempRequest >= tempInterval) {
     lastTempRequest = millis();
     sensors.requestTemperatures();
-    temperature = String(sensors.getTempCByIndex(0));
-    temperature_f = String(sensors.getTempFByIndex(0));
-    String tempJson = "{\"c\":" + temperature + ",\"f\":" + temperature_f + "}";
-    webSocket.broadcastTXT(tempJson);
-    Serial.println("Temperature: " + temperature + "°C / " + temperature_f + "°F");
+    TempPair temp = GetTemperature();
+    Serial.println("Temperature: " + temp.c + "°C / " + temp.f + "°F");
   }
   
   if (millis() - lastDbInsert >= dbInsertInterval) {

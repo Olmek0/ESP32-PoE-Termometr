@@ -63,19 +63,27 @@ function createCha(title, datax, datay) {
                 legend: {
                     position: 'top',
                     align: 'start',
-                    labels: {
-                        color: 'black'
-                    }
+                    labels: { color: 'black' }
                 }
             }
         }
     });
 }
+
+let firstLoad = true;
+
 function toggleCha(title, datay, datax, clickedElement) {
     const chartCanvas = document.getElementById('TempCha');
     const timeElement = document.querySelector('.Time');
     const tempStatsElement = document.querySelector('.TempTimeStat');
     
+	if (firstLoad) {
+        createCha(title, datax, datay);
+        updateTemperatureStats();
+        firstLoad = false;
+        return;
+    }
+
     chartCanvas.classList.add('fade-out');
     timeElement.classList.add('fade-out');
     tempStatsElement.classList.add('fade-out');
@@ -94,28 +102,45 @@ function toggleCha(title, datay, datax, clickedElement) {
     }, 500);
 }
 
+let Bar, Menu;
+
+function handleGlobalInteraction(e) {
+    const isClickOutside = e.type === 'click' && !e.target.closest('.OptionsBar');
+    const isEscapeKey = e.type === 'keydown' && e.key === 'Escape';
+
+    if (isClickOutside || isEscapeKey) {
+		Menu.classList.remove('show');
+		Bar.classList.remove('active');
+    }
+}
+
 window.addEventListener('DOMContentLoaded', () => {
     const defaultTab = document.querySelector('.Navbar div.active');
     toggleCha('Dzisiaj', yValues, xValues, defaultTab);
-   
-    const optionsBar = document.querySelector('.OptionsBar');
-    const optionsMenu = document.getElementById('Options');
-    
-    optionsBar.addEventListener('click', function(e) {
+
+    Bar = document.querySelector('.OptionsBar');
+    Menu = document.getElementById('Options');
+
+	Bar.addEventListener('click', function(e) {
         e.stopPropagation();
-        optionsMenu.classList.toggle('show');
+        Menu.classList.toggle('show');
+		Bar.classList.toggle('active');
     });
-    document.addEventListener('click', function() {
-        optionsMenu.classList.remove('show');
-        e.stopPropagation();
-        optionsBar.classList.toggle('active');
+
+	document.addEventListener('click', handleGlobalInteraction);
+	document.addEventListener('keydown', handleGlobalInteraction);
+
+    document.getElementById("toggleUnit").addEventListener("click", () => {
+        useFahrenheit = !useFahrenheit;
+        const text = useFahrenheit ? "°F" : "°C";
+        fadeText(document.getElementById("toggleUnit"), text);
+        updateDisplayedTemp();
+        updateStatsDisplay(); 
+        updateTemperatureStats();
     });
-    document.addEventListener('keydown', function(e) {
-        if (e.key === 'Escape') {
-            optionsMenu.classList.remove('show');
-        }
-    });
+	
 });
+
 
 let useFahrenheit = false;
 let latestTempC = null;
@@ -137,7 +162,6 @@ try {
   socket.onmessage = function(event) {
     try {
       const data = JSON.parse(event.data);
-      WebSock(); 
       if (data.total !== undefined) {
         statData = data;
         updateStatsDisplay();
@@ -203,25 +227,6 @@ function updateTemperatureStats() {
         `<span class="red">ŚRD: </span>${avgTemp}${unit} | ` +
         `<span class="red">MAKS:</span> ${maxTemp}${unit}`;
 }
-
-function WebSock() {
-    WebSockA();
-    document.getElementById("toggleUnit").addEventListener("click", () => {
-        updateDisplayedTemp();
-        updateStatsDisplay(); 
-    });
-}
-
-function WebSockA() {
-    document.getElementById("toggleUnit").addEventListener("click", () => {
-        useFahrenheit = !useFahrenheit;
-        const text = useFahrenheit ? "°F" : "°C";
-        fadeText(document.getElementById("toggleUnit"), text);
-        updateTemperatureStats()
-    });
-}
-
-WebSockA();
 
 function fadeText(element, newText) {
     const span = element.querySelector('span');
