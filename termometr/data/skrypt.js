@@ -74,33 +74,50 @@ function createCha(title, datax, datay) {
 let firstLoad = true;
 
 function toggleCha(title, datay, datax, clickedElement) {
-    const chartCanvas = document.getElementById('TempCha');
-    const timeElement = document.querySelector('.Time');
-    const tempStatsElement = document.querySelector('.TempTimeStat');
-    
-	if (firstLoad) {
-        createCha(title, datax, datay);
-        updateTemperatureStats();
-        firstLoad = false;
-        return;
+  document.querySelectorAll('.Navbar div').forEach(el => el.classList.remove('active'));
+  clickedElement.classList.add('active');
+
+  const chartCanvas = document.getElementById('TempCha');
+  const timeElement = document.querySelector('.Time');
+  const tempStatsElement = document.querySelector('.TempTimeStat');
+  const searchForm = document.getElementById('historySearchForm');
+
+  if (title === 'Historia') {
+    searchForm.style.display = 'block';
+    chartCanvas.style.display = 'none';
+    timeElement.style.display = 'none';
+    tempStatsElement.style.display = 'none';
+  } else {
+    searchForm.style.display = 'none';
+    chartCanvas.style.display = 'block';
+    timeElement.style.display = 'block';
+    tempStatsElement.style.display = 'block';
+
+    if (firstLoad) {
+      createCha(title, datax, datay);
+      updateTemperatureStats();
+      firstLoad = false;
+      return;
     }
 
     chartCanvas.classList.add('fade-out');
     timeElement.classList.add('fade-out');
     tempStatsElement.classList.add('fade-out');
-    
+
     setTimeout(() => {
-        document.querySelectorAll('.Navbar div').forEach(el => el.classList.remove('active'));
-        clickedElement.classList.add('active');
-        
-        createCha(title, datax, datay);
-        
-        updateTemperatureStats();
-        
-        chartCanvas.classList.remove('fade-out');
-        timeElement.classList.remove('fade-out');
-        tempStatsElement.classList.remove('fade-out');
+      createCha(title, datax, datay);
+      updateTemperatureStats();
+
+      chartCanvas.classList.remove('fade-out');
+      timeElement.classList.remove('fade-out');
+      tempStatsElement.classList.remove('fade-out');
     }, 500);
+  }
+
+  if (title === 'Historia') {
+    document.getElementById('startDate').value = '';
+    document.getElementById('endDate').value = '';
+  }
 }
 
 let Bar, Menu;
@@ -229,11 +246,6 @@ function updateStatsDisplay() {
     }
 	
 	document.getElementById("stat-start").textContent = stst;
-	
-    /*document.getElementById("stat-total").textContent = `Ilość odczytów - ${statData.total}`;
-    document.getElementById("stat-max").textContent = `Najwyższa temperatura - ${max}${unit}`;
-    document.getElementById("stat-min").textContent = `Najniższa temperatura - ${min}${unit}`;*/
-    
 }
 
 let lastDisplayedTemp = null;
@@ -247,7 +259,6 @@ function updateDisplayedTemp() {
 	lastDisplayedTemp = newText;
 	
 	fadeText(document.getElementById("temp"), newText);
-    //document.getElementById("temp").textContent = temp + unit;
 }
 
 function updateTemperatureStats() {
@@ -297,3 +308,18 @@ let date = new Intl.DateTimeFormat("pl-PL", {
 }).format(new Date());
 
 document.getElementById("data").innerHTML = date;
+
+
+function validateDates() {
+  const start = document.getElementById('startDate').value;
+  const end = document.getElementById('endDate').value;
+  if (!start || !end) {
+    alert('Proszę podać obie daty.');
+    return false;
+  }
+  if (start > end) {
+    alert('Data początkowa nie może być późniejsza niż data końcowa.');
+    return false;
+  }
+  return true;
+}

@@ -38,8 +38,18 @@
             <nav class="Navbar">
                 <div class="active" onclick="toggleCha('Dzisiaj', yValues, xValues, this)">Dzisiaj</div>
                 <div onclick="toggleCha('W miesiącu', yValues2,xValues2, this)">W miesiącu</div>
-                <div >Historia</div>
+                <div onclick="toggleCha('Historia', [], [], this)">Historia</div>
             </nav>
+			<div id="historySearchForm" style="display:none; margin: 10px 0;">
+				<form id="historiaForm" action="/history" method="GET" onsubmit="return validateDates()">
+					<label for="startDate">Data początkowa:</label>
+					<input type="date" id="startDate" name="start" required>
+						<label for="endDate">Data końcowa:</label>
+					<input type="date" id="endDate" name="end" required>
+				<button type="submit">Szukaj</button>
+				</form>
+			</div>
+
 
             <section class="Summary">
                 <div class="Time">DZISIAJ</div>
