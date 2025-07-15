@@ -241,6 +241,7 @@ void setup() {
     if (type == WStype_CONNECTED) {
       Serial.println("[WS] Client connected");
       TempPair temp = GetTemperature();
+      
       sendStatsOverWebSocket();
 
     } else if (type == WStype_DISCONNECTED) {
@@ -277,5 +278,7 @@ void loop() {
     String timestamp = getTimestamp();
     logTemperature(tempValc, tempValf, timestamp);
     Serial.println("[DB] Logged temperature: " + String(tempValc) + " / " + String(tempValf) + " at " + timestamp);
+    
+    sendStatsOverWebSocket();
   }
 }

@@ -56,12 +56,14 @@ a:link, a:visited {
   transition: opacity 0.4s ease-in-out;
 }
 
-#toggleUnit .fade-out {
+.fade-out {
   opacity: 0;
+    transition: opacity 0.3s ease-out;
 }
 
-#toggleUnit .fade-in {
+.fade-in {
   opacity: 1;
+    transition: opacity 0.3s ease-in;
 }
 #toggleUnit:hover {
     background-color: rgb(212, 178, 104);

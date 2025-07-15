@@ -1,3 +1,4 @@
+
 const xValues = Array.from({ length: 24 }, (_, i) => i + 1);;
 const yValues = [17, 18, 19, 20.8, 21, 20.7, 20,21, 22, 25.3, 25.1, 27, 26, 26, 26.7, 27, 27.6, 28.5, 30, 28, 28.4, 26.8, 25.6, 25.2];
 
@@ -132,6 +133,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
     document.getElementById("toggleUnit").addEventListener("click", () => {
         useFahrenheit = !useFahrenheit;
+		localStorage.setItem("tempUnit", useFahrenheit ? "F" : "C");
         const text = useFahrenheit ? "°F" : "°C";
         fadeText(document.getElementById("toggleUnit"), text);
         updateDisplayedTemp();
@@ -141,10 +143,19 @@ window.addEventListener('DOMContentLoaded', () => {
 	
 });
 
-
 let useFahrenheit = false;
 let latestTempC = null;
 let latestTempF = null;
+
+
+const savedUnit = localStorage.getItem("tempUnit");
+if (savedUnit === "F") {
+    useFahrenheit = true;
+    document.querySelector("#toggleUnit span").textContent = "°F";
+} else {
+    useFahrenheit = false;
+    document.querySelector("#toggleUnit span").textContent = "°C";
+}
 
 let statData = {};
 
@@ -169,6 +180,7 @@ try {
         latestTempC = data.c;
         latestTempF = data.f;
         updateDisplayedTemp();
+		
       }
     } catch (err) {
       console.error("Invalid JSON from socket:", err);
@@ -189,19 +201,53 @@ function getUnit() {
         min: useFahrenheit ? statData.minf : statData.min
     };
 }
+let lastTotal = null;
+let lastMax = null;
+let lastMin = null;
 
 function updateStatsDisplay() {
     const { unit, max, min } = getUnit();
 	
-    document.getElementById("stat-total").textContent = `Ilość odczytów - ${statData.total}`;
+	const stto = `Ilość odczytów - ${statData.total}`;
+	const stmx = `Najwyższa temperatura - ${max}${unit}`;
+	const stmi = `Najniższa temperatura - ${min}${unit}`;
+	const stst = `Pierwszy odczyt - ${statData.start}`;
+	
+	if (stto !== lastTotal) {
+        fadeText(document.getElementById("stat-total"), stto);
+        lastTotal = stto;
+    }
+
+    if (stmx !== lastMax) {
+        fadeText(document.getElementById("stat-max"), stmx);
+        lastMax = stmx;
+    }
+
+    if (stmi !== lastMin) {
+        fadeText(document.getElementById("stat-min"), stmi);
+        lastMin = stmi;
+    }
+	
+	document.getElementById("stat-start").textContent = stst;
+	
+    /*document.getElementById("stat-total").textContent = `Ilość odczytów - ${statData.total}`;
     document.getElementById("stat-max").textContent = `Najwyższa temperatura - ${max}${unit}`;
-    document.getElementById("stat-min").textContent = `Najniższa temperatura - ${min}${unit}`;
-    document.getElementById("stat-start").textContent = `Odczyty wprowadzone od - ${statData.start}`;
+    document.getElementById("stat-min").textContent = `Najniższa temperatura - ${min}${unit}`;*/
+    
 }
+
+let lastDisplayedTemp = null;
 
 function updateDisplayedTemp() {
 	const { temp, unit } = getUnit();
-    document.getElementById("temp").textContent = temp + unit;
+	const newText = temp + unit;
+
+	if (newText === lastDisplayedTemp) return;
+	
+	lastDisplayedTemp = newText;
+	
+	fadeText(document.getElementById("temp"), newText);
+    //document.getElementById("temp").textContent = temp + unit;
 }
 
 function updateTemperatureStats() {
@@ -229,6 +275,8 @@ function updateTemperatureStats() {
 }
 
 function fadeText(element, newText) {
+	if (!element) return;
+	
     const span = element.querySelector('span');
 
     span.classList.add('fade-out');
