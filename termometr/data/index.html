@@ -9,56 +9,50 @@
 </head>
 <body>
     <div class="Page">
-        <div class="Title">
+        <div class="Title ShadowL">
             <div id="Titletext">Projekt - termometr</div>
-            <div id="toggleUnit"><span>°C</span></div>
+            <div id="toggleUnit" class="FlexCentre"><span>°C</span></div>
             <div class="OptionsBar">
                 <div id="OptText">Opcje</div>
-                <ul id="Options">
+                <ul id="Options" class="ShadowL">
                     <li><a href="Acc.html">Konto</a></li>
                     <li><a href="Set.html">Ustaw.</a></li>
                     <li><a href="Inf.html">Info.</a></li>
                 </ul>
             </div>
         </div>
-        <div class = 'TempStat'>
-            <div class = 'Temp'>
-                    <div>Obecna Temperatura</div>
-                    <div id='temp'><span>Ładowanie...</span></div>
-                    <div id='data'>Ładowanie...</div>
+        <div class = 'TempStat HiddenOnStart'>
+            <div class = 'Temp ShadowB' >
+                    <div >Obecna Temperatura</div>
+                    <div id='temp'><span>Ładowanie...</span></div> <div id='data'>Ładowanie...</div>
             </div>
-            <div class = 'Stat'>
-                <div id='stat-total'><span>Ładowanie...</span></div>
-                <div id='stat-max'><span>Ładowanie...</span></div>
-                <div id='stat-min'><span>Ładowanie...</span></div>
-                <div id='stat-start'><span>Ładowanie...</span></div>
+            <div class = 'Stat ShadowB'>
+                <div id='stat-total'><span>Ładowanie...</span></div> <div id='stat-max'><span>Ładowanie...</span></div> <div id='stat-min'><span>Ładowanie...</span></div> <div id='stat-start'><span>Ładowanie...</span></div> </div>
             </div>
         </div>
-        <div class="Bottom">
-            <nav class="Navbar">
+        <div class="Bottom HiddenOnStart">
+            <nav class="Navbar ShadowB">
                 <div class="active" onclick="toggleCha('Dzisiaj', yValues, xValues, this)">Dzisiaj</div>
                 <div onclick="toggleCha('W miesiącu', yValues2,xValues2, this)">W miesiącu</div>
                 <div onclick="toggleCha('Historia', [], [], this)">Historia</div>
             </nav>
-			<div id="historySearchForm" style="display:none; margin: 10px 0;">
-				<form id="historiaForm" action="/history" method="GET" onsubmit="return validateDates()">
+			<div id="SearchHistory">
+				<form id="HistoryForm" class="FlexCentre" action="/history" method="GET" onsubmit="return validateDates()">
 					<label for="startDate">Data początkowa:</label>
-					<input type="date" id="startDate" name="start" required>
+					<input type="date" id="startDate" class="Dates" name="start" required><br>
 						<label for="endDate">Data końcowa:</label>
-					<input type="date" id="endDate" name="end" required>
-				<button type="submit">Szukaj</button>
+					<input type="date" id="endDate" class="Dates" name="end" required><br>
+				    <div type="submit" id="Submit" class="FlexCentre ShadowB">Szukaj</div>
 				</form>
 			</div>
-
-
             <section class="Summary">
-                <div class="Time">DZISIAJ</div>
+                <div class="Time"><span>DZISIAJ</span></div>
                 <div class="TempTimeStat">
                     TEMPERATURA<br><span class="red">MIN: </span>13.7°C | <span class="red">ŚRD: </span>14.9°C | <span class="red">MAKS:</span> 16.3°C
                 </div>
             </section>
             <div class="Charts">
-                <canvas id="TempCha"></canvas>
+                <canvas id="TempCha" class="ShadowB"></canvas>
             </div>
         </div>
     

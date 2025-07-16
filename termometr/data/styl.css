@@ -1,96 +1,142 @@
 
+:root {
+    --mainbg: rgb(228, 176, 107);
+    --secbg: rgb(228, 191, 111);
+    --hoverbgli: rgb(212, 178, 104);
+    --hoverbgda: rgb(158, 125, 52);
+    --red: red;
+    --wh1: white;
+    --wh2: #e2e2e2;
+    --thrbg: rgb(165, 135, 71);
+}
 body {
     font-family: 'Courier New', Courier, monospace;
     position: relative;
     overflow-x: hidden;
     height: 80vh;
-    max-width: 1200px;   
+    max-width: 1200px;
     margin: 0 auto;
+    overflow-y: scroll;
 }
+
 canvas {
     transition: opacity 0.3s ease-in-out;
 }
+
 .red {
-    color: red;
+    color: var(--red);
     white-space: nowrap;
 }
-a:link, a:visited {
+
+a:link,
+a:visited {
     text-decoration: none;
     color: black;
 }
+
 .Title {
     display: flex;
-    background-color: rgb(228, 176, 107);
-    box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
+    background-color: var(--mainbg);
 }
-.Title > div {
+
+.Title>div {
     font-size: 30px;
     padding: 20px;
     padding-top: 10px;
     padding-bottom: 10px;
 }
+
 #toggleUnit {
-    background-color: rgb(228, 191, 111);
-    border-left: white 1px solid;
+    background-color: var(--secbg);
+    border-left: var(--wh2) 1px solid;
     margin-left: auto;
     cursor: pointer;
-    display: flex;
-    align-items: center;
     user-select: none;
+    transition: background-color 0.15s ease-in-out;
 }
+
+#toggleUnit span {
+    transition: opacity 0.3s ease-out;
+}
+
 .fade-out {
-  opacity: 0;
+    opacity: 0;
     transition: opacity 0.3s ease-out;
 }
 
 .fade-in {
-  opacity: 1;
+    opacity: 1;
     transition: opacity 0.3s ease-in;
 }
-#toggleUnit:hover {
-    background-color: rgb(212, 178, 104);
-    transition-delay: 150ms;
+
+.fade-out-height {
+    opacity: 0;
+    height: 0 !important;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+    overflow: hidden;
+    transition: opacity 0.3s ease-out, height 0.3s ease-out, padding 0.3s ease-out, margin 0.3s ease-out;
 }
+
+
+#toggleUnit:hover {
+    background-color: var(--hoverbgli);
+}
+
 .OptionsBar {
     cursor: pointer;
     position: relative;
-    background-color: rgb(228, 191, 111);
+    background-color: var(--secbg);
     display: flex;
-    border-left: solid 1px white;
-    justify-content: center; 
+    border-left: solid 1px var(--wh2);
+    justify-content: center;
     width: 175px;
     user-select: none;
+    transition: background-color 0.15s ease-in-out;
 }
+
 #Options {
     position: absolute;
     top: 100%;
     padding: 0;
     margin: 0;
-    width: 100%; 
+    width: 100%;
     list-style-type: none;
-    background-color: rgb(228, 191, 111);
+    background-color: var(--secbg);
     border: 1px solid #ddd;
-    box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
     visibility: hidden;
+    opacity: 0; 
+    transition: visibility 0s linear 0.3s, opacity 0.3s ease-in-out; 
+    z-index: 100;
 }
+
 #Options li {
     padding: 10px;
     border-bottom: 1px solid #ddd;
     text-align: center;
+    transition: background-color 0.15s ease-in-out;
 }
-.OptionsBar:hover  {
-    transition-delay: 150ms;
-    background-color: rgb(212, 178, 104);
+
+.OptionsBar:hover {
+    background-color: var(--hoverbgli);
 }
+
 .OptionsBar.active {
-    background-color: rgb(212, 178, 104);
+    background-color: var(--hoverbgli);
 }
+
 #Options li:hover {
-    background-color: rgb(212, 178, 104);
+    background-color: var(--hoverbgli);
 }
+
 #Options.show {
     visibility: visible;
+    opacity: 1;
+    transition-delay: 0s;
 }
+
 .TempStat {
     margin-top: 20px;
     display: flex;
@@ -98,105 +144,224 @@ a:link, a:visited {
     gap: 20px;
     padding: 0 20px;
 }
-.TempStat > div {
+
+
+.TempStat>div {
     flex: 300px;
-    box-shadow: 0px 4px 8px 0px rgba(0,0,0,0.2);
     font-size: 25px;
     padding: 20px;
     border: 2px solid #ddd;
     text-align: center;
 }
+
 .Temp div:nth-child(1) {
     font-size: 35px;
     padding-top: 10px;
 }
+
 .Temp div:nth-child(2) {
     font-size: 40px;
     padding-top: 25px;
     padding-bottom: 20px;
 }
+
 .Stat div {
     padding: 5px;
 }
+
+.Stat div span {
+    transition: opacity 0.3s ease-out;
+}
+
 #TempCha {
-    margin: 30px 100px 10px 100px ;
-    box-shadow: 0px 4px 8px 0px rgba(0,0,0,0.2);
-    background-color: white;
+    height: 400px;
+    margin: 30px 100px 10px 100px;
+    background-color: var(--wh1);
 }
+
 .Charts {
-	height: 400px;
-    transition: opacity 0.4s ease-in-out;
+    height: 400px;
+    transition: opacity 0.3s ease-in-out, height 0.3s ease-in-out;
 }
+
+.Charts.hidden {
+    height: 0;
+    opacity: 0;
+    overflow: hidden;
+    margin-top: 0;
+    margin-bottom: 0;
+}
+
 .Navbar {
     margin-top: 30px;
     display: flex;
-    background-color: rgb(212, 178, 104);
-    color: white;
+    background-color: var(--hoverbgli);
+    color: var(--wh1);
     user-select: none;
 }
+
 .Bottom {
     margin: 20px;
-    background-color: rgba(228, 176, 107);
+    background-color: var(--mainbg);
+    height: auto;
+    min-height: 500px;
 }
-.Navbar div{
+
+.Navbar div {
     cursor: pointer;
     flex: 1;
     text-align: center;
     padding: 15px 0;
     margin: 0;
+    transition: background-color 0.15s ease-in-out, font-weight 0.15s ease-in-out;
 }
 
 .Navbar div:hover {
-    background-color: rgb(165, 135, 71);
+    background-color: var(--thrbg);
     font-weight: bold;
-    transition-delay: 150ms;
 }
+
 .Navbar div.active {
-    background-color: rgb(158, 125, 52);
+    background-color: var(--hoverbgda);
     font-weight: bold;
 }
+
 .Summary {
     margin-top: 20px;
     text-align: center;
     color: #1c3a5e;
+    transition: opacity 0.3s ease-in-out, height 0.3s ease-in-out, margin 0.s ease-in-out;
 }
+
+.Summary.hidden {
+    height: 0;
+    opacity: 0;
+    overflow: hidden;
+    margin-top: 0;
+    margin-bottom: 0;
+}
+
 .Time {
     font-size: 24px;
     font-weight: bold;
     margin-bottom: 15px;
-    transition: opacity 0.4s ease-in-out;
+    transition: opacity 0.3s ease-in-out;
 }
+
 .TempTimeStat {
     font-size: 18px;
     color: #333;
+    transition: opacity 0.3s ease-in-out;
 }
+#SearchHistory {
+    display: block; 
+    text-align: center;
+    padding: 10px;
+    height: 0;
+    overflow: hidden;
+    opacity: 0; 
+    transition: height 0.3s ease-in-out, padding 0.3s ease-in-out, opacity 0.3s ease-in-out;
+}
+
+#SearchHistory.active {
+    height: auto;
+    padding: 20px;
+    opacity: 1;
+}
+
+.Dates {
+    width: 100px;
+    height: 30px;
+    margin-top: 20px;
+}
+
+#HistoryForm {
+    font-size: 24px;
+    flex-direction: column;
+}
+
+#HistoryForm label {
+    margin-top: 10px;
+}
+
+#Submit {
+    margin-top: 20px;
+    background-color: var(--hoverbgli);
+    color: var(--wh1);
+    height: 30px;
+    width: 150px;
+    margin-top: 90px;
+    padding: 10px;
+    cursor: pointer;
+    justify-content: center;
+    font-size: 20px;
+    transition: background-color 0.15s ease-in-out;
+}
+
+#Submit:hover {
+    background-color: var(--hoverbgda);
+}
+
+
 @media only screen and (max-width: 600px) {
     .Title {
         flex-direction: column;
         text-align: center;
-        box-shadow: 0px 4px 8px 0px rgba(0,0,0,0.2);
+        box-shadow: 0px 4px 8px 0px rgba(0, 0, 0, 0.2);
         max-height: 100%;
     }
-    
+
     #toggleUnit {
-        border-top: white 1px solid;
-        border-bottom: white 1px solid;
+        border-top: var(--wh2) 1px solid;
+        border-bottom: var(--wh2) 1px solid;
         width: 100%;
         flex-direction: column;
     }
+
     .OptionsBar {
         width: 100%;
     }
+
     #OptText {
         font-size: 30px;
     }
-    .TempStat > div {
+
+    .TempStat>div {
         flex: 1 1 100%;
     }
+
     #TempCha {
-        margin: 30px 10px 10px 10px ;
+        margin: 30px 10px 10px 10px;
     }
+
     .Navbar {
         flex-direction: column;
     }
+
+    #Submit {
+        bottom: 10px;
+        position: static;
+    }
+}
+
+.HiddenOnStart {
+    opacity: 0;
+    transform: translateY(20px);
+    transition: opacity 0.5s ease-out, transform 0.5s ease-out;
+}
+.ShowOnLoad {
+    opacity: 1;
+    transform: translateY(0);
+}
+.ShadowL {
+    box-shadow: 0px 8px 16px 0px rgba(0, 0, 0, 0.2);
+}
+
+.ShadowB {
+    box-shadow: 0px 4px 8px 0px rgba(0, 0, 0, 0.2);
+}
+.FlexCentre {
+    
+    display: flex;
+    align-items: center;
 }
