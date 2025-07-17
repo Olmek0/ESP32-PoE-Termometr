@@ -366,12 +366,11 @@ function validateDates() {
     }
     return true;
 }
+function submitSearch() {
+    if (!validateDates()) return;
 
-document.getElementById('Submit').addEventListener('click', function() {
-    if (validateDates()) {
-        const startDate = document.getElementById('startDate').value;
-        const endDate = document.getElementById('endDate').value;
-        console.log(`Searching history from ${startDate} to ${endDate}`);
-        alert(`Szukanie historii od ${startDate} do ${endDate} (funkcjonalność do zaimplementowania)`);
-    }
-});
+    const start = document.getElementById('startDate').value;
+    const end = document.getElementById('endDate').value;
+
+    window.location.href = `/history.html?start=${start}&end=${end}`;
+}

@@ -181,7 +181,48 @@ void sendStatsOverWebSocket() {
 
   sqlite3_finalize(stmt);
   sqlite3_close(db);
+}void sendHistoryJson(const String& start, const String& end) {
+  if (sqlite3_open("/sdcard/temperature.db", &db)) {
+    server.send(500, "application/json", "{\"error\":\"Failed to open database\"}");
+    return;
+  }
+
+  String query = "SELECT timestamp, temperature_c, temperature_f FROM logs2 "
+                 "WHERE DATE(timestamp) >= DATE('" + start + "') AND DATE(timestamp) <= DATE('" + end + "') "
+                 "ORDER BY timestamp ASC;";
+
+  sqlite3_stmt* stmt;
+  int rc = sqlite3_prepare_v2(db, query.c_str(), -1, &stmt, NULL);
+  if (rc != SQLITE_OK) {
+    sqlite3_close(db);
+    server.send(500, "application/json", "{\"error\":\"Failed to execute query\"}");
+    return;
+  }
+  String json = "{ \"total\":0, \"data\":[";
+  bool first = true;
+  int total = 0;
+
+  while (sqlite3_step(stmt) == SQLITE_ROW) {
+    if (!first) json += ",";
+    first = false;
+    total++;
+
+    const char* ts = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0));
+    float c = sqlite3_column_double(stmt, 1);
+    float f = sqlite3_column_double(stmt, 2);
+
+    json += "{\"timestamp\":\"" + String(ts) + "\",\"c\":" + String(c, 2) + ",\"f\":" + String(f, 2) + "}";
+  }
+
+  json += "], \"total\":" + String(total) + " }";
+
+  sqlite3_finalize(stmt);
+  sqlite3_close(db);
+
+  server.send(200, "application/json", json);
 }
+
+
 
 TempPair GetTemperature(){
     TempPair temp;
@@ -234,6 +275,19 @@ void setup() {
   server.on("/styl.css", HTTP_GET, []() {handleRoot("/styl.css","text/css"); });
   server.on("/skrypt.js", HTTP_GET, []() {handleRoot("/skrypt.js","application/javascript"); });
 
+  server.on("/history.html", HTTP_GET, []() {handleRoot("/history.html", "text/html");});
+
+  server.on("/skrypt2.js", HTTP_GET, []() {handleRoot("/skrypt2.js", "application/javascript");});
+
+  server.on("/api/history", HTTP_GET, []() {
+  if (!server.hasArg("start") || !server.hasArg("end")) {
+    server.send(400, "application/json", "{\"error\":\"Missing date range\"}");
+    return;
+  }
+
+  sendHistoryJson(server.arg("start"), server.arg("end"));
+  });
+
   // websockety
 
   webSocket.begin();
@@ -263,12 +317,7 @@ const unsigned long dbInsertInterval = 300000;
 void loop() {
   server.handleClient();
   webSocket.loop();
-  if (millis() - lastTempRequest >= tempInterval) {
-    lastTempRequest = millis();
-    sensors.requestTemperatures();
-    TempPair temp = GetTemperature();
-    Serial.println("Temperature: " + temp.c + "°C / " + temp.f + "°F");
-  }
+  
   
   if (millis() - lastDbInsert >= dbInsertInterval) {
     lastDbInsert = millis();
@@ -280,5 +329,11 @@ void loop() {
     Serial.println("[DB] Logged temperature: " + String(tempValc) + " / " + String(tempValf) + " at " + timestamp);
     
     sendStatsOverWebSocket();
+  }
+  if (millis() - lastTempRequest >= tempInterval) {
+    lastTempRequest = millis();
+    sensors.requestTemperatures();
+    TempPair temp = GetTemperature();
+    Serial.println("Temperature: " + temp.c + "°C / " + temp.f + "°F");
   }
 }

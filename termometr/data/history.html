@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8" />
+  <title>Historia temperatur</title>
+  <style>
+    body { font-family: sans-serif; padding: 20px; }
+    table { border-collapse: collapse; width: 100%; margin-top: 10px; }
+    th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
+    th { background-color: #eee; }
+    .controls { margin: 20px 0; display: flex; gap: 10px; align-items: center; }
+  </style>
+</head>
+<body>
+  <h2 id="range-title">Historia temperatur</h2>
+
+  <div class="controls">
+    <label>Szukaj: <input type="text" id="searchInput" placeholder="np. 25.0 lub 2024-07" /></label>
+    <label>Rekordów na stronę:
+      <select id="limitSelect">
+        <option>10</option>
+        <option selected>20</option>
+        <option>50</option>
+        <option>100</option>
+      </select>
+    </label>
+  </div>
+
+  <table>
+    <thead>
+      <tr><th>Data i czas</th><th>°C</th><th>°F</th></tr>
+    </thead>
+    <tbody id="history-table">
+      <tr><td colspan="3">Ładowanie danych...</td></tr>
+    </tbody>
+  </table>
+
+  <div id="pagination"></div>
+
+  <a href="/">← Powrót</a>
+
+  <script src="skrypt2.js"></script>
+</body>
+</html>
