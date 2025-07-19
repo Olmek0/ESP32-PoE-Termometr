@@ -9,7 +9,28 @@ document.addEventListener("DOMContentLoaded", () => {
   const params = new URLSearchParams(window.location.search);
   start = params.get("start");
   end = params.get("end");
+  
+  const table = document.querySelector('table');
+  const footer = document.querySelector('footer');
+  const controls = document.querySelector('.Controls');
 
+
+  const time = 50;
+    if (table) {
+        setTimeout(() => {
+            table.classList.add('ShowOnLoad');
+        }, time); 
+    }
+    if (footer) {
+        setTimeout(() => {
+            footer.classList.add('ShowOnLoad');
+        }, time*4); 
+    }
+    if (controls) {
+        setTimeout(() => {
+            controls.classList.add('ShowOnLoad');
+        }, time*3); 
+    }
   if (!start || !end) {
     document.getElementById("history-table").innerHTML = "<tr><td colspan='3'>Nie podano zakresu dat.</td></tr>";
     return;
@@ -22,15 +43,17 @@ document.addEventListener("DOMContentLoaded", () => {
     renderTableFiltered();
   });
 
-  const limitSelect = document.getElementById("limitSelect");
-  limitSelect.value = limit;
-  limitSelect.addEventListener("change", (e) => {
+  const LimitSelect = document.getElementById("LimitSelect");
+  LimitSelect.value = limit;
+  LimitSelect.addEventListener("change", (e) => {
     limit = parseInt(e.target.value);
     page = 1;
     renderTableFiltered();
   });
 
   fetchAllData();
+
+
 });
 
 function fetchAllData() {
@@ -44,7 +67,7 @@ function fetchAllData() {
     })
     .catch(() => {
       document.getElementById("history-table").innerHTML = "<tr><td colspan='3'>Błąd pobierania danych.</td></tr>";
-      document.getElementById("pagination").innerHTML = "";
+      document.getElementById("Pagination").innerHTML = "";
     });
 }
 
@@ -71,7 +94,7 @@ function renderTableFiltered() {
 
   if (paginated.length === 0) {
     tbody.innerHTML = "<tr><td colspan='3'>Brak wyników pasujących do wyszukiwania.</td></tr>";
-    document.getElementById("pagination").innerHTML = "";
+    document.getElementById("Pagination").innerHTML = "";
     return;
   }
 
@@ -85,7 +108,7 @@ function renderTableFiltered() {
 }
 
 function renderPagination() {
-  const container = document.getElementById("pagination");
+  const container = document.getElementById("Pagination");
   container.innerHTML = "";
   container.style.marginTop = "20px";
   container.style.textAlign = "center";

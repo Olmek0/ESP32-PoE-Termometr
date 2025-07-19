@@ -200,7 +200,6 @@ window.addEventListener('DOMContentLoaded', () => {
             TempSta.classList.add('ShowOnLoad');
         }, time + 100); 
     }
-
 });
 
 let useFahrenheit = false;
