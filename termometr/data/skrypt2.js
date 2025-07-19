@@ -36,7 +36,7 @@ document.addEventListener("DOMContentLoaded", () => {
     return;
   }
 
-  document.getElementById("range-title").textContent = `Historia temperatur od ${start} do ${end}`;
+  document.getElementById("TitleText").textContent = `Historia temperatur od ${start} do ${end}`;
 
   document.getElementById("searchInput").addEventListener("input", () => {
     page = 1;
