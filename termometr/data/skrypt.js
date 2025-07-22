@@ -1,6 +1,6 @@
 
-const xValues = Array.from({ length: 24 }, (_, i) => i + 1);
-const yValues = [17, 18, 19, 20.8, 21, 20.7, 20, 21, 22, 25.3, 25.1, 27, 26, 26, 26.7, 27, 27.6, 28.5, 30, 28, 28.4, 26.8, 25.6, 25.2];
+let xValues = [];
+let yValues = [];
 
 const xValues2 = Array.from({ length: 30 }, (_, i) => i + 1);
 const yValues2 = [
@@ -174,6 +174,7 @@ window.addEventListener('DOMContentLoaded', () => {
         updateDisplayedTemp();
         updateStatsDisplay();
         updateTemperatureStats();
+		updateChartForCurrentUnit();
     });
 
     const savedUnit = localStorage.getItem("tempUnit");
@@ -208,6 +209,7 @@ let latestTempF = null;
 
 
 let statData = {};
+let chaData = {};
 let socket;
 
 try {
@@ -222,7 +224,11 @@ try {
     socket.onmessage = function (event) {
         try {
             const data = JSON.parse(event.data);
-            if (data.total !== undefined) {
+			if (data.type === "chart") {
+				chaData = data;
+				updateChartDisplay();
+			}
+            else if (data.total !== undefined) {
                 statData = data;
                 updateStatsDisplay();
             } else {
@@ -248,6 +254,47 @@ function getUnit() {
         min: useFahrenheit ? statData.minf : statData.min
     };
 }
+
+let chartDataC = [];
+let chartDataF = [];
+
+function updateChartDisplay() {
+    if (!chaData || !chaData.data) return;
+
+    const now = new Date();
+    const hours = Array.from({ length: 24 }, (_, i) => {
+        const d = new Date(now.getTime() - (23 - i) * 3600 * 1000);
+        return `${d.getHours().toString().padStart(2, '0')}:00`;
+    });
+
+    const valuesMapC = {};
+    const valuesMapF = {};
+
+    chaData.data.forEach(item => {
+        const date = new Date(item.hour);
+        const hourKey = `${date.getHours().toString().padStart(2, '0')}:00`;
+        valuesMapC[hourKey] = item.avg_c;
+        valuesMapF[hourKey] = item.avg_f;
+    });
+
+    xValues = hours;
+    chartDataC = hours.map(h => valuesMapC[h] ?? null);
+    chartDataF = hours.map(h => valuesMapF[h] ?? null);
+
+    updateChartForCurrentUnit();
+}
+
+function updateChartForCurrentUnit() {
+    const { unit } = getUnit();
+    yValues = useFahrenheit ? chartDataF : chartDataC;
+
+    const activeLabel = document.querySelector('.Navbar .active')?.innerText;
+    if (activeLabel === 'Dzisiaj') {
+        toggleCha('Dzisiaj', yValues, xValues, document.querySelector('.Navbar .active'));
+    }
+}
+
+
 let lastTotal = null;
 let lastMax = null;
 let lastMin = null;

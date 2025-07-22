@@ -222,6 +222,53 @@ void sendStatsOverWebSocket() {
   server.send(200, "application/json", json);
 }
 
+void sendChartData() {
+  if (sqlite3_open("/sdcard/temperature.db", &db)) {
+    Serial.println("[DB ERROR] Cannot open DB for chart");
+    return;
+  }
+
+  const char *query = R"sql(
+    SELECT 
+      strftime('%Y-%m-%d %H:00', timestamp) AS hour,
+      AVG(temperature_c) AS avg_c,
+      AVG(temperature_f) AS avg_f
+    FROM logs2
+    WHERE timestamp >= datetime('now', '-24 hours')
+    GROUP BY hour
+    ORDER BY hour ASC;
+  )sql";
+
+  sqlite3_stmt *stmt;
+  int rc = sqlite3_prepare_v2(db, query, -1, &stmt, NULL);
+
+  if (rc != SQLITE_OK) {
+    Serial.printf("[DB ERROR] Chart query failed: %s\n", sqlite3_errmsg(db));
+    sqlite3_close(db);
+    return;
+  }
+
+  String json = "{\"type\":\"chart\",\"data\":[";
+  bool first = true;
+
+  while (sqlite3_step(stmt) == SQLITE_ROW) {
+    if (!first) json += ",";
+    first = false;
+
+    const char *hour = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0));
+    float avg_c = sqlite3_column_double(stmt, 1);
+    float avg_f = sqlite3_column_double(stmt, 2);
+
+    json += "{\"hour\":\"" + String(hour) + "\",\"avg_c\":" + String(avg_c, 2) + ",\"avg_f\":" + String(avg_f, 2) + "}";
+  }
+
+  json += "]}";
+
+  sqlite3_finalize(stmt);
+  sqlite3_close(db);
+
+  webSocket.broadcastTXT(json);
+}
 
 
 TempPair GetTemperature(){
@@ -295,9 +342,8 @@ void setup() {
     if (type == WStype_CONNECTED) {
       Serial.println("[WS] Client connected");
       TempPair temp = GetTemperature();
-      
       sendStatsOverWebSocket();
-
+      sendChartData();
     } else if (type == WStype_DISCONNECTED) {
       Serial.println("[WS] Client disconnected");
     }
@@ -327,7 +373,7 @@ void loop() {
     String timestamp = getTimestamp();
     logTemperature(tempValc, tempValf, timestamp);
     Serial.println("[DB] Logged temperature: " + String(tempValc) + " / " + String(tempValf) + " at " + timestamp);
-    
+    sendChartData();
     sendStatsOverWebSocket();
   }
   if (millis() - lastTempRequest >= tempInterval) {
