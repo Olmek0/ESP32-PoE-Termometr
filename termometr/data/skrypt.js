@@ -2,17 +2,27 @@
 let xValues = [];
 let yValues = [];
 
-const xValues2 = Array.from({ length: 30 }, (_, i) => i + 1);
-const yValues2 = [
-    24.5, 28.3, 26.1, 20.7, 25.4, 29.8, 22.0, 21.3, 27.5, 24.9,
-    26.8, 23.4, 20.1, 25.2, 22.6, 28.7, 24.3, 23.8, 29.1, 21.6,
-    27.9, 26.5, 28.0, 23.9, 22.7, 29.3, 25.8, 20.9, 21.7, 27.1
-];
+let xValues2 = [];
+let yValues2 = [];
 
 let chartInstance = null;
 
+function getIsolatedPoints(data) {
+  return data.map((value, index) => {
+    if (value === null) return false;
+    const prev = data[index - 1];
+    const next = data[index + 1];
+    return (prev === null || prev === undefined) && 
+           (next === null || next === undefined);
+  });
+}
+
 function createCha(title, datax, datay) {
     const ctx = document.getElementById('TempCha').getContext('2d');
+	
+	const isolatedPoints = getIsolatedPoints(datay);
+	const pointRadius = isolatedPoints.map(isolated => isolated ? 2 : 0);
+	const { unit } = getUnit();
 
     if (chartInstance) {
         chartInstance.destroy();
@@ -23,13 +33,15 @@ function createCha(title, datax, datay) {
         data: {
             labels: datax,
             datasets: [{
-                label: 'Temperatura (°C)',
+                label: 'Temperatura (' + unit + ')',
                 data: datay,
                 borderColor: 'rgba(209, 78, 42, 1)',
                 backgroundColor: 'rgba(209, 78, 42, 1)',
                 tension: 0.5,
                 fill: false,
-                pointRadius: 0
+                pointRadius: pointRadius,
+				pointHitRadius: 5,
+				pointStyle: 'rect'
             }]
         },
         options: {
@@ -54,6 +66,19 @@ function createCha(title, datax, datay) {
                 }
             },
             plugins: {
+				
+				tooltip: {
+					titleAlign: 'center',
+					callbacks: {
+						title: function(context) {
+							return `${context[0].label}`;
+						},
+						label: function(context) {
+							return `${context.parsed.y}${unit}`;
+						}
+					}
+				},
+
                 title: {
                     display: true,
                     text: title,
@@ -175,6 +200,8 @@ window.addEventListener('DOMContentLoaded', () => {
         updateStatsDisplay();
         updateTemperatureStats();
 		updateChartForCurrentUnit();
+		updateMonthlyChartDisplay();
+		UpdateChartLegend();
     });
 
     const savedUnit = localStorage.getItem("tempUnit");
@@ -227,6 +254,8 @@ try {
 			if (data.type === "chart") {
 				chaData = data;
 				updateChartDisplay();
+				updateMonthlyChartDisplay();
+
 			}
             else if (data.total !== undefined) {
                 statData = data;
@@ -294,6 +323,41 @@ function updateChartForCurrentUnit() {
     }
 }
 
+function updateMonthlyChartDisplay() {
+    if (!chaData || !chaData.monthly) return;
+
+    const today = new Date();
+    const days = Array.from({ length: 30 }, (_, i) => {
+		const d = new Date(today.getTime() - (29 - i) * 24 * 3600 * 1000);
+		return d.toLocaleDateString("pl-PL", { day: "2-digit", month: "2-digit" }); // Gives "DD-MM"
+	});
+
+    const valuesMapC = {};
+    const valuesMapF = {};
+
+    chaData.monthly.forEach(item => {
+        const [year, month, day] = item.day.split('-'); // "YYYY-MM-DD"
+        const key = `${day}.${month}`; // Convert to "DD-MM"
+        valuesMapC[key] = item.avg_c;
+        valuesMapF[key] = item.avg_f;
+    });
+
+    xValues2 = days;
+    chartDataMonthC = days.map(day => valuesMapC[day] ?? null);
+    chartDataMonthF = days.map(day => valuesMapF[day] ?? null);
+
+    updateMonthlyChartForCurrentUnit();
+}
+
+function updateMonthlyChartForCurrentUnit() {
+    const { unit } = getUnit();
+    yValues2 = useFahrenheit ? chartDataMonthF : chartDataMonthC;
+	
+    const activeLabel = document.querySelector('.Navbar .active')?.innerText;
+	if (activeLabel === 'W miesiącu') {
+		toggleCha('W miesiącu', yValues2, xValues2, document.querySelector('.Navbar .active'));
+	}
+}
 
 let lastTotal = null;
 let lastMax = null;

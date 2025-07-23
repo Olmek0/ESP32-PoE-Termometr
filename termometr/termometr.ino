@@ -228,7 +228,8 @@ void sendChartData() {
     return;
   }
 
-  const char *query = R"sql(
+  // Query for last 24 hours, grouped by hour
+  const char *query24h = R"sql(
     SELECT 
       strftime('%Y-%m-%d %H:00', timestamp) AS hour,
       AVG(temperature_c) AS avg_c,
@@ -239,37 +240,68 @@ void sendChartData() {
     ORDER BY hour ASC;
   )sql";
 
-  sqlite3_stmt *stmt;
-  int rc = sqlite3_prepare_v2(db, query, -1, &stmt, NULL);
+  // Query for last 30 days, grouped by day
+  const char *query30d = R"sql(
+    SELECT 
+      strftime('%Y-%m-%d', timestamp) AS day,
+      AVG(temperature_c) AS avg_c,
+      AVG(temperature_f) AS avg_f
+    FROM logs2
+    WHERE timestamp >= date('now', '-30 days')
+    GROUP BY day
+    ORDER BY day ASC;
+  )sql";
 
-  if (rc != SQLITE_OK) {
-    Serial.printf("[DB ERROR] Chart query failed: %s\n", sqlite3_errmsg(db));
-    sqlite3_close(db);
-    return;
+  String json = "{\"type\":\"chart\"";
+
+  // 24h data
+  sqlite3_stmt *stmt24;
+  if (sqlite3_prepare_v2(db, query24h, -1, &stmt24, NULL) == SQLITE_OK) {
+    json += ",\"data\":[";
+    bool first = true;
+    while (sqlite3_step(stmt24) == SQLITE_ROW) {
+      if (!first) json += ",";
+      first = false;
+
+      const char *hour = reinterpret_cast<const char *>(sqlite3_column_text(stmt24, 0));
+      float avg_c = sqlite3_column_double(stmt24, 1);
+      float avg_f = sqlite3_column_double(stmt24, 2);
+
+      json += "{\"hour\":\"" + String(hour) + "\",\"avg_c\":" + String(avg_c, 2) + ",\"avg_f\":" + String(avg_f, 2) + "}";
+    }
+    json += "]";
+    sqlite3_finalize(stmt24);
+  } else {
+    Serial.printf("[DB ERROR] 24h query failed: %s\n", sqlite3_errmsg(db));
   }
 
-  String json = "{\"type\":\"chart\",\"data\":[";
-  bool first = true;
+  // 30d data
+  sqlite3_stmt *stmt30;
+  if (sqlite3_prepare_v2(db, query30d, -1, &stmt30, NULL) == SQLITE_OK) {
+    json += ",\"monthly\":[";
+    bool first = true;
+    while (sqlite3_step(stmt30) == SQLITE_ROW) {
+      if (!first) json += ",";
+      first = false;
 
-  while (sqlite3_step(stmt) == SQLITE_ROW) {
-    if (!first) json += ",";
-    first = false;
+      const char *day = reinterpret_cast<const char *>(sqlite3_column_text(stmt30, 0));
+      float avg_c = sqlite3_column_double(stmt30, 1);
+      float avg_f = sqlite3_column_double(stmt30, 2);
 
-    const char *hour = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0));
-    float avg_c = sqlite3_column_double(stmt, 1);
-    float avg_f = sqlite3_column_double(stmt, 2);
-
-    json += "{\"hour\":\"" + String(hour) + "\",\"avg_c\":" + String(avg_c, 2) + ",\"avg_f\":" + String(avg_f, 2) + "}";
+      json += "{\"day\":\"" + String(day) + "\",\"avg_c\":" + String(avg_c, 2) + ",\"avg_f\":" + String(avg_f, 2) + "}";
+    }
+    json += "]";
+    sqlite3_finalize(stmt30);
+  } else {
+    Serial.printf("[DB ERROR] 30d query failed: %s\n", sqlite3_errmsg(db));
   }
 
-  json += "]}";
+  json += "}";
 
-  sqlite3_finalize(stmt);
   sqlite3_close(db);
 
   webSocket.broadcastTXT(json);
 }
-
 
 TempPair GetTemperature(){
     TempPair temp;
