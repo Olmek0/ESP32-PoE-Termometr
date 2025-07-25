@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8" />
+  <title>Ustawienia</title>
+  <style>
+    footer {
+		position: fixed;
+		bottom: 0;
+		width: 100%;
+		max-width: 1200px;
+		background-color: var(--secbg);
+		color: var(--wh1); 
+		text-align: center; 
+		padding: 15px 0;
+		border-top: 1px solid var(--wh2);
+	}
+	footer a { font-weight: bold; }
+
+	footer a:hover { text-decoration: underline; }
+	
+  </style>
+  <link rel="stylesheet" type="text/css" href="styl.css">
+</head>
+<body>
+  <div class="Page">
+<div class="container">
+        <div class='Title'>
+			<div id='TitleText'>Network Configuration</div>
+		</div>
+        <div class="form-group">
+            <label>
+                <input type="radio" name="ipmode" id="dhcp" value="dhcp"> DHCP
+            </label>
+            <label>
+                <input type="radio" name="ipmode" id="static" value="static"> Static IP
+            </label>
+        </div>
+        
+        <div id="static-fields" style="display: none;">
+            <div class="form-group">
+                <label for="ip">IP Address</label>
+                <input type="text" id="ip" placeholder="192.168.1.100">
+            </div>
+            <div class="form-group">
+                <label for="gateway">Gateway</label>
+                <input type="text" id="gateway" placeholder="192.168.1.1">
+            </div>
+            <div class="form-group">
+                <label for="subnet">Subnet Mask</label>
+                <input type="text" id="subnet" placeholder="255.255.255.0">
+            </div>
+            <div class="form-group">
+                <label for="dns1">Primary DNS</label>
+                <input type="text" id="dns1" placeholder="8.8.8.8">
+            </div>
+            <div class="form-group">
+                <label for="dns2">Secondary DNS</label>
+                <input type="text" id="dns2" placeholder="8.8.4.4">
+            </div>
+        </div>
+        
+        <button id="save-btn" class="btn">Save</button>
+        <div id="status"></div>
+    </div>
+
+  <footer class=''>
+    <a href="/">← Powrót</a>
+  </footer>
+  
+  </div>
+  
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    let currentIP = window.location.hostname;
+    let newIP = '';
+    let isCurrentDHCP = true;
+    
+    fetch('/api/ipconfig')
+        .then(response => response.json())
+        .then(data => {
+            isCurrentDHCP = data.dhcp;
+            if (data.dhcp) {
+                document.getElementById('dhcp').checked = true;
+                document.getElementById('static-fields').style.display = 'none';
+            } else {
+                document.getElementById('static').checked = true;
+                document.getElementById('static-fields').style.display = 'block';
+                document.getElementById('ip').value = data.ip;
+                document.getElementById('gateway').value = data.gateway;
+                document.getElementById('subnet').value = data.subnet;
+                document.getElementById('dns1').value = data.dns1;
+                document.getElementById('dns2').value = data.dns2 || '';
+                currentIP = data.ip;
+            }
+        });
+
+    document.querySelectorAll('input[name="ipmode"]').forEach(radio => {
+        radio.addEventListener('change', function() {
+            document.getElementById('static-fields').style.display = 
+                this.value === 'static' ? 'block' : 'none';
+        });
+    });
+    document.getElementById('save-btn').addEventListener('click', async function() {
+        const willUseDHCP = document.getElementById('dhcp').checked;
+        const config = {
+            dhcp: willUseDHCP
+        };
+
+        if (!willUseDHCP) {
+            config.ip = document.getElementById('ip').value;
+            config.gateway = document.getElementById('gateway').value;
+            config.subnet = document.getElementById('subnet').value;
+            config.dns1 = document.getElementById('dns1').value;
+            config.dns2 = document.getElementById('dns2').value;
+            newIP = config.ip;
+        }
+
+        try {
+            showStatus('Saving configuration...', 'info');
+            
+            const response = await fetch('/api/ipconfig', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(config),
+                signal: AbortSignal.timeout(1000)
+            });
+
+            const result = await response.json();
+            newIP = result.ip || newIP;
+
+            showStatus(`Configuration saved. Redirecting to ${newIP}...`, 'success');
+
+            setTimeout(() => {
+                window.location.href = `http://${newIP}/set.html`;
+            }, 4000); // 4-second delay before redirect
+
+        } catch (error) {
+            showStatus('Error saving configuration', 'error');
+            console.error('Error:', error);
+        }
+    });
+
+    function showStatus(message, type) {
+        const statusDiv = document.getElementById('status');
+        statusDiv.textContent = message;
+        statusDiv.className = type;
+    }
+});
+
+
+</script>
+</body>
+</html>

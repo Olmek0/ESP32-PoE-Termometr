@@ -8,6 +8,7 @@
 #include "FS.h"
 #include "sqlite3.h"
 #include <WebSocketsServer.h>
+#include <ArduinoJson.h>
 
 //// INICJALIZACJA ////
 
@@ -18,6 +19,16 @@ sqlite3 *db; // sql database
 char *zErrMsg = 0; // błąd w sql
 
 bool eth_connected = false;
+
+bool useDHCP = true;
+IPAddress staticIP;
+IPAddress gateway;
+IPAddress subnet;
+IPAddress dns1;
+IPAddress dns2;
+
+// For storing configuration
+#define CONFIG_FILE "/ipconfig.txt"
 
 // Temperatura inicjalizacja //
 
@@ -31,6 +42,64 @@ struct TempPair {
 };
 
 //// FUNKCJE ////
+
+void saveIPConfig() {
+  File file = FILESYSTEM.open(CONFIG_FILE, "w");
+  if (!file) {
+    Serial.println("[IP] Failed to open config file for writing");
+    return;
+  }
+  
+  file.println(useDHCP ? "dhcp" : "static");
+  if (!useDHCP) {
+    file.println(staticIP.toString());
+    file.println(gateway.toString());
+    file.println(subnet.toString());
+    file.println(dns1.toString());
+    file.println(dns2.toString());
+  }
+  
+  file.close();
+  Serial.println("[IP] Configuration saved");
+}
+
+void loadIPConfig() {
+  if (!FILESYSTEM.exists(CONFIG_FILE)) {
+    Serial.println("[IP] No config file, using defaults");
+    return;
+  }
+  
+  File file = FILESYSTEM.open(CONFIG_FILE, "r");
+  if (!file) {
+    Serial.println("[IP] Failed to open config file");
+    return;
+  }
+  
+  String mode = file.readStringUntil('\n');
+  mode.trim();
+  useDHCP = (mode == "dhcp");
+  
+  if (!useDHCP) {
+    staticIP.fromString(file.readStringUntil('\n'));
+    gateway.fromString(file.readStringUntil('\n'));
+    subnet.fromString(file.readStringUntil('\n'));
+    dns1.fromString(file.readStringUntil('\n'));
+    dns2.fromString(file.readStringUntil('\n'));
+  }
+  
+  file.close();
+  Serial.println("[IP] Configuration loaded");
+}
+
+void applyNetworkConfig() {
+  if (useDHCP) {
+    ETH.config(INADDR_NONE, INADDR_NONE, INADDR_NONE);
+    Serial.println("[IP] Using DHCP");
+  } else {
+    ETH.config(staticIP, gateway, subnet, dns1, dns2);
+    Serial.println("[IP] Using static IP: " + staticIP.toString());
+  }
+}
 
 // Utworzenie servera
 
@@ -55,6 +124,13 @@ void WiFiEvent(WiFiEvent_t event) {
     case ARDUINO_EVENT_ETH_STOP:
       Serial.println("[ETH] Stopped");
       eth_connected = false;
+      break;
+    case ARDUINO_EVENT_ETH_LOST_IP:
+      Serial.println("[ETH] Lost IP");
+      eth_connected = false;
+      if (useDHCP) {
+        ETH.config(INADDR_NONE, INADDR_NONE, INADDR_NONE); // Re-enable DHCP
+      }
       break;
     default:
       break;
@@ -338,9 +414,13 @@ void setup() {
 
   initDatabase();
 
+  loadIPConfig();
+
   WiFi.onEvent(WiFiEvent);
   delay(100); 
   ETH.begin();
+  
+  applyNetworkConfig();
 
   for (int i = 0; i < 100 && !eth_connected; i++) {
     delay(100);
@@ -357,6 +437,69 @@ void setup() {
   server.on("/history.html", HTTP_GET, []() {handleRoot("/history.html", "text/html");});
 
   server.on("/skrypt2.js", HTTP_GET, []() {handleRoot("/skrypt2.js", "application/javascript");});
+
+  server.on("/set.html", HTTP_GET, []() { handleRoot("/set.html", "text/html"); });
+
+  server.on("/api/ipconfig", HTTP_GET, []() {
+    String json = "{";
+    json += "\"dhcp\":" + String(useDHCP ? "true" : "false") + ",";
+    json += "\"ip\":\"" + (useDHCP ? ETH.localIP().toString() : staticIP.toString()) + "\",";
+    json += "\"gateway\":\"" + (useDHCP ? ETH.gatewayIP().toString() : gateway.toString()) + "\",";
+    json += "\"subnet\":\"" + (useDHCP ? ETH.subnetMask().toString() : subnet.toString()) + "\",";
+    json += "\"dns1\":\"" + (useDHCP ? ETH.dnsIP(0).toString() : dns1.toString()) + "\",";
+    json += "\"dns2\":\"" + (useDHCP ? ETH.dnsIP(1).toString() : dns2.toString()) + "\"";
+    json += "}";
+    server.send(200, "application/json", json);
+  });
+
+  server.on("/api/ipconfig", HTTP_POST, []() {
+  if (!server.hasArg("plain")) {
+    server.send(400, "application/json", "{\"error\":\"Bad request\"}");
+    return;
+  }
+
+  String body = server.arg("plain");
+  DynamicJsonDocument doc(512);
+  deserializeJson(doc, body);
+
+  bool willUseDHCP = doc["dhcp"];
+  IPAddress newStaticIP, newGateway, newSubnet, newDNS1, newDNS2;
+
+  if (!willUseDHCP) {
+    newStaticIP.fromString(doc["ip"].as<const char*>());
+    newGateway.fromString(doc["gateway"].as<const char*>());
+    newSubnet.fromString(doc["subnet"].as<const char*>());
+    newDNS1.fromString(doc["dns1"].as<const char*>());
+    newDNS2.fromString(doc["dns2"].as<const char*>());
+  }
+
+  // Get future IP address (either static or what DHCP likely assigns)
+  String futureIp = willUseDHCP ? ETH.localIP().toString() : newStaticIP.toString();
+
+  // Send success JSON BEFORE disconnecting
+  String response = "{\"status\":\"ok\",\"reboot\":true,\"ip\":\"" + futureIp + "\"}";
+  server.send(200, "application/json", response);
+
+  // Delay to allow browser to finish receiving response
+  delay(500);
+
+  // Now apply the new network config
+  useDHCP = willUseDHCP;
+  if (!willUseDHCP) {
+    staticIP = newStaticIP;
+    gateway = newGateway;
+    subnet = newSubnet;
+    dns1 = newDNS1;
+    dns2 = newDNS2;
+  }
+
+  saveIPConfig();
+  applyNetworkConfig();  // This may restart Ethernet
+
+  // Optional: delay to stabilize after change
+  delay(100);
+});
+
 
   server.on("/api/history", HTTP_GET, []() {
   if (!server.hasArg("start") || !server.hasArg("end")) {
