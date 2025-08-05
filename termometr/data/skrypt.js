@@ -97,7 +97,6 @@ function createCha(title, datax, datay) {
 }
 
 let firstLoad = true;
-
 function toggleCha(title, datay, datax, clickedElement) {
     document.querySelectorAll('.Navbar div').forEach(el => el.classList.remove('active'));
     clickedElement.classList.add('active');
@@ -107,9 +106,10 @@ function toggleCha(title, datay, datax, clickedElement) {
     const tempStatsElement = document.querySelector('.TempTimeStat');
     const searchForm = document.getElementById('SearchHistory');
     const chartsContainer = document.querySelector('.Charts');
-    const summarySection = document.querySelector('.Summary'); 
+    const summarySection = document.querySelector('.Summary');
 
     const transitionDuration = 300;
+    const isSwitchingFromHistoria = searchForm.classList.contains('active');
 
     if (title === 'Historia') {
         chartsContainer.classList.add('fade-out-height');
@@ -120,45 +120,60 @@ function toggleCha(title, datay, datax, clickedElement) {
             summarySection.classList.add('hidden');
             searchForm.classList.add('active');
         }, transitionDuration);
-
     } else {
-        if (searchForm.classList.contains('active')) {
-            searchForm.classList.remove('active');
-        }
+    if (isSwitchingFromHistoria && window.scrollY > 150) {
+        window.scrollBy({ top: -100, behavior: 'smooth' });
+    }
 
+    if (searchForm.classList.contains('active')) {
+        searchForm.classList.remove('active');
+    }
+
+    chartCanvas.style.opacity = '0';
+    timeElement.style.opacity = '0';
+    tempStatsElement.style.opacity = '0';
+
+    setTimeout(() => {
         chartsContainer.classList.remove('hidden');
         summarySection.classList.remove('hidden');
+        chartsContainer.classList.remove('fade-out-height');
+        summarySection.classList.remove('fade-out-height');
 
-        setTimeout(() => {
-            chartsContainer.classList.remove('fade-out-height');
-            summarySection.classList.remove('fade-out-height');
+        if (firstLoad) {
+            createCha(title, datax, datay);
+            updateTemperatureStats();
+            chartCanvas.style.opacity = '1';
+            tempStatsElement.style.opacity = '1';
+            timeElement.style.opacity = '1';
+            firstLoad = false;
+        } else {
+            timeElement.classList.add('fade-out');
+            tempStatsElement.classList.add('fade-out');
 
-            if (firstLoad) {
+            setTimeout(() => {
                 createCha(title, datax, datay);
                 updateTemperatureStats();
-                firstLoad = false;
-            } else {
-                chartCanvas.classList.add('fade-out');
-                timeElement.classList.add('fade-out');
-                tempStatsElement.classList.add('fade-out');
+                chartCanvas.style.opacity = '1';
+                tempStatsElement.style.opacity = '1';
+                timeElement.style.opacity = '1';
+                timeElement.classList.remove('fade-out');
+                tempStatsElement.classList.remove('fade-out');
+            }, transitionDuration);
+        }
+    }, transitionDuration);
+}
 
-                setTimeout(() => {
-                    createCha(title, datax, datay);
-                    updateTemperatureStats();
-
-                    chartCanvas.classList.remove('fade-out');
-                    timeElement.classList.remove('fade-out');
-                    tempStatsElement.classList.remove('fade-out');
-                }, transitionDuration);
-            }
-        }, 50); 
-    }
 
     if (title === 'Historia') {
         document.getElementById('startDate').value = '';
         document.getElementById('endDate').value = '';
     }
 }
+setTimeout(() => {
+  chartCanvas.style.opacity = '1';
+}, 50); 
+
+
 
 
 let Bar, Menu;
@@ -173,7 +188,8 @@ function handleGlobalInteraction(e) {
     }
 }
 
-window.addEventListener('DOMContentLoaded', () => {
+window.addEventListener('DOMContentLoaded', () => { 
+	window.scrollBy({ top: -100, behavior: 'smooth' })
     const defaultTab = document.querySelector('.Navbar div.active');
     toggleCha('Dzisiaj', yValues, xValues, defaultTab);
 
