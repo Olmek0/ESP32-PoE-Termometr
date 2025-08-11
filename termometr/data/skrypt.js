@@ -160,7 +160,7 @@ function toggleCha(title, datay, datax, clickedElement) {
                 tempStatsElement.classList.remove('fade-out');
             }, transitionDuration);
         }
-    }, transitionDuration);
+    }, transitionDuration - 200);
 }
 
 
@@ -425,7 +425,15 @@ function updateTemperatureStats() {
         document.querySelector('.TempTimeStat').innerHTML = '';
         return;
     }
-
+	if (datay.length === 0) {
+		document.querySelector('.TempTimeStat').textContent = 'Brak danych';
+		return;
+	}
+	
+	datay = datay.filter(function (el) {
+		return el != null;
+	});
+	
     const minTemp = Math.min(...datay);
     const maxTemp = Math.max(...datay);
     const avgTemp = (datay.reduce((a, b) => a + b, 0) / datay.length).toFixed(2);
