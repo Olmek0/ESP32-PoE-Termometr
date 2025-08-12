@@ -9,6 +9,7 @@
 #include "sqlite3.h"
 #include <WebSocketsServer.h>
 #include <ArduinoJson.h>
+#include <ESPmDNS.h> 
 
 //// INICJALIZACJA ////
 
@@ -90,6 +91,24 @@ void loadIPConfig() {
   file.close();
   Serial.println("[IP] Configuration loaded");
 }
+
+IPAddress lastIP;
+
+void checkIPChange() {
+  IPAddress currentIP = ETH.localIP();
+  if (currentIP != lastIP) {
+    Serial.print("[ETH] IP changed to: ");
+    Serial.println(currentIP);
+    lastIP = currentIP;
+
+    // If you want to save it:
+    if (useDHCP) {
+      staticIP = currentIP; // update stored IP to current DHCP IP
+      saveIPConfig();
+    }
+  }
+}
+
 
 void applyNetworkConfig() {
   if (useDHCP) {
@@ -430,6 +449,12 @@ void setup() {
   
   configTzTime("CET-1CEST,M3.5.0/2,M10.5.0/3", "pool.ntp.org");
 
+  if (MDNS.begin("esp32-poe")) {
+    Serial.println("[MDNS] mDNS responder started: esp32-poe.local");
+  } else {
+    Serial.println("[MDNS] Error setting up mDNS responder!");
+  }
+
   server.on("/", HTTP_GET, []() {handleRoot("/index.html","text/html"); });
   server.on("/styl.css", HTTP_GET, []() {handleRoot("/styl.css","text/css"); });
   server.on("/skrypt.js", HTTP_GET, []() {handleRoot("/skrypt.js","application/javascript"); });
@@ -474,11 +499,9 @@ void setup() {
   }
 
   // Get future IP address (either static or what DHCP likely assigns)
-  String futureIp = willUseDHCP ? ETH.localIP().toString() : newStaticIP.toString();
 
   // Send success JSON BEFORE disconnecting
-  String response = "{\"status\":\"ok\",\"reboot\":true,\"ip\":\"" + futureIp + "\"}";
-  server.send(200, "application/json", response);
+  server.send(200, "application/json", "{\"status\":\"ok\",\"reboot\":true}");
 
   // Delay to allow browser to finish receiving response
   delay(500);
@@ -539,6 +562,7 @@ void loop() {
   server.handleClient();
   webSocket.loop();
   
+  checkIPChange();
   
   if (millis() - lastDbInsert >= dbInsertInterval) {
     lastDbInsert = millis();
