@@ -9,7 +9,19 @@
 #include "sqlite3.h"
 #include <WebSocketsServer.h>
 #include <ArduinoJson.h>
-#include <ESPmDNS.h> 
+#include <ESPmDNS.h>
+#include <HTTPClient.h>
+#include <UrlEncode.h>
+
+// WhatsApp Alert Configuration
+String whatsappAPIKey = ""; // Get from callmebot.com
+String recipientPhone = ""; // Format: "1234567890" (no +)
+float highTempLimit = 30.0;
+float lowTempLimit = 10.0;
+bool alertsEnabled = false;
+bool alertSentHigh = false;
+bool alertSentLow = false;
+#define ALERT_CONFIG_FILE "/alertconfig.txt"
 
 //// INICJALIZACJA ////
 
@@ -408,6 +420,72 @@ TempPair GetTemperature(){
     return temp;
 }
 
+void sendWhatsAppAlert(String message) {
+  if (recipientPhone == "" || !alertsEnabled) return;
+
+  // Format phone number (add country code without +)
+  String formattedPhone = recipientPhone;
+  
+  // Encode message
+  String encodedMessage = urlEncode(message);
+  
+  // Create URL
+  String url = "https://api.callmebot.com/whatsapp.php?phone=" + formattedPhone + 
+               "&text=" + encodedMessage + "&apikey=" + whatsappAPIKey;
+
+  HTTPClient http;
+  http.begin(url);
+  
+  int httpCode = http.GET();
+  if (httpCode == HTTP_CODE_OK) {
+    Serial.println("[WhatsApp] Alert sent successfully");
+  } else {
+    Serial.printf("[WhatsApp] Error sending alert: %s\n", http.errorToString(httpCode).c_str());
+  }
+  http.end();
+}
+
+void saveAlertConfig() {
+  File file = FILESYSTEM.open(ALERT_CONFIG_FILE, "w");
+  if (!file) {
+    Serial.println("[Alert] Failed to open config file for writing");
+    return;
+  }
+  
+  file.println(alertsEnabled ? "1" : "0");
+  file.println(highTempLimit);
+  file.println(lowTempLimit);
+  file.println(recipientPhone);
+  file.println(whatsappAPIKey);
+  
+  file.close();
+  Serial.println("[Alert] Configuration saved");
+}
+
+void loadAlertConfig() {
+  if (!FILESYSTEM.exists(ALERT_CONFIG_FILE)) {
+    Serial.println("[Alert] No config file, using defaults");
+    return;
+  }
+  
+  File file = FILESYSTEM.open(ALERT_CONFIG_FILE, "r");
+  if (!file) {
+    Serial.println("[Alert] Failed to open config file");
+    return;
+  }
+  
+  alertsEnabled = file.readStringUntil('\n').toInt();
+  highTempLimit = file.readStringUntil('\n').toFloat();
+  lowTempLimit = file.readStringUntil('\n').toFloat();
+  recipientPhone = file.readStringUntil('\n');
+  recipientPhone.trim();
+  whatsappAPIKey = file.readStringUntil('\n');
+  whatsappAPIKey.trim();
+  
+  file.close();
+  Serial.println("[Alert] Configuration loaded");
+}
+
 //// PROGRAM
 
 void setup() {
@@ -533,6 +611,52 @@ void setup() {
   sendHistoryJson(server.arg("start"), server.arg("end"));
   });
 
+    // Alert config endpoints
+  server.on("/api/alertconfig", HTTP_GET, []() {
+    String json = "{";
+    json += "\"high\":" + String(highTempLimit, 1) + ",";
+    json += "\"low\":" + String(lowTempLimit, 1) + ",";
+    json += "\"phone\":\"" + recipientPhone + "\",";
+    json += "\"apikey\":\"" + whatsappAPIKey + "\",";
+    json += "\"alertsEnabled\":" + String(alertsEnabled ? "true" : "false");
+    json += "}";
+    server.send(200, "application/json", json);
+  });
+
+  server.on("/api/alertconfig", HTTP_POST, []() {
+    if (!server.hasArg("plain")) {
+      server.send(400, "application/json", "{\"error\":\"Bad request\"}");
+      return;
+    }
+
+    String body = server.arg("plain");
+    DynamicJsonDocument doc(512);
+    deserializeJson(doc, body);
+
+    highTempLimit = doc["high"];
+    lowTempLimit = doc["low"];
+    recipientPhone = doc["phone"].as<String>();
+    whatsappAPIKey = doc["apikey"].as<String>();
+    alertsEnabled = doc["alertsEnabled"];
+    
+    saveAlertConfig();
+    server.send(200, "application/json", "{\"status\":\"ok\"}");
+  });
+
+  server.on("/api/testalert", HTTP_POST, []() {
+    if (recipientPhone == "" || !alertsEnabled) {
+      server.send(400, "application/json", "{\"error\":\"Alerts not configured\"}");
+      return;
+    }
+    
+    String message = "🔔 Test Alert from ESP32 Temperature Monitor\n"
+                   "Your alert configuration is working correctly!\n"
+                   "High Limit: " + String(highTempLimit, 1) + "°C\n"
+                   "Low Limit: " + String(lowTempLimit, 1) + "°C";
+    
+    sendWhatsAppAlert(message);
+    server.send(200, "application/json", "{\"status\":\"Test alert sent\"}");
+  });
   // websockety
 
   webSocket.begin();
@@ -572,6 +696,32 @@ void loop() {
     String timestamp = getTimestamp();
     logTemperature(tempValc, tempValf, timestamp);
     Serial.println("[DB] Logged temperature: " + String(tempValc) + " / " + String(tempValf) + " at " + timestamp);
+        if (alertsEnabled && recipientPhone != "") {
+      if (tempValc > highTempLimit && !alertSentHigh) {
+        String message = "⚠️ HIGH TEMPERATURE ALERT!\n"
+                       "Current: " + String(tempValc, 1) + "°C (" + String(tempValf, 1) + "°F)\n"
+                       "Limit: " + String(highTempLimit, 1) + "°C\n"
+                       "Time: " + getTimestamp();
+        sendWhatsAppAlert(message);
+        alertSentHigh = true;
+        alertSentLow = false;
+      } 
+      else if (tempValc < lowTempLimit && !alertSentLow) {
+        String message = "⚠️ LOW TEMPERATURE ALERT!\n"
+                       "Current: " + String(tempValc, 1) + "°C (" + String(tempValf, 1) + "°F)\n"
+                       "Limit: " + String(lowTempLimit, 1) + "°C\n"
+                       "Time: " + getTimestamp();
+        sendWhatsAppAlert(message);
+        alertSentLow = true;
+        alertSentHigh = false;
+      }
+      else if (tempValc <= highTempLimit && tempValc >= lowTempLimit) {
+        // Temperature back to normal - reset alerts
+        alertSentHigh = false;
+        alertSentLow = false;
+      }
+    }
+
     sendChartData();
     sendStatsOverWebSocket();
   }

@@ -5,161 +5,215 @@
   <title>Ustawienia</title>
   <style>
     footer {
-		position: fixed;
-		bottom: 0;
-		width: 100%;
-		max-width: 1200px;
-		background-color: var(--secbg);
-		color: var(--wh1); 
-		text-align: center; 
-		padding: 15px 0;
-		border-top: 1px solid var(--wh2);
-	}
-	footer a { font-weight: bold; }
-
-	footer a:hover { text-decoration: underline; }
-	
+      position: fixed;
+      bottom: 0;
+      width: 100%;
+      max-width: 1200px;
+      background-color: var(--secbg);
+      color: var(--wh1); 
+      text-align: center; 
+      padding: 15px 0;
+      border-top: 1px solid var(--wh2);
+    }
+    footer a { font-weight: bold; }
+    footer a:hover { text-decoration: underline; }
+    .form-group { margin-bottom: 10px; }
+    .btn { margin-top: 10px; }
+    #status, #alertStatus { margin-top: 10px; }
   </style>
   <link rel="stylesheet" type="text/css" href="styl.css">
 </head>
 <body>
-  <div class="Page">
-<div class="container">
-        <div class='Title'>
-			<div id='TitleText'>Network Configuration</div>
-		</div>
-        <div class="form-group">
-            <label>
-                <input type="radio" name="ipmode" id="dhcp" value="dhcp"> DHCP
-            </label>
-            <label>
-                <input type="radio" name="ipmode" id="static" value="static"> Static IP
-            </label>
-        </div>
-        
-        <div id="static-fields" style="display: none;">
-            <div class="form-group">
-                <label for="ip">IP Address</label>
-                <input type="text" id="ip" placeholder="192.168.1.100">
-            </div>
-            <div class="form-group">
-                <label for="gateway">Gateway</label>
-                <input type="text" id="gateway" placeholder="192.168.1.1">
-            </div>
-            <div class="form-group">
-                <label for="subnet">Subnet Mask</label>
-                <input type="text" id="subnet" placeholder="255.255.255.0">
-            </div>
-            <div class="form-group">
-                <label for="dns1">Primary DNS</label>
-                <input type="text" id="dns1" placeholder="8.8.8.8">
-            </div>
-            <div class="form-group">
-                <label for="dns2">Secondary DNS</label>
-                <input type="text" id="dns2" placeholder="8.8.4.4">
-            </div>
-        </div>
-        
-        <button id="save-btn" class="btn">Save</button>
-        <div id="status"></div>
+<div class="Page">
+  <div class="container">
+    <div class='Title'>
+      <div id='TitleText'>Network Configuration</div>
+    </div>
+    <div class="form-group">
+      <label><input type="radio" name="ipmode" id="dhcp" value="dhcp"> DHCP</label>
+      <label><input type="radio" name="ipmode" id="static" value="static"> Static IP</label>
     </div>
 
-  <footer class=''>
+    <div id="static-fields" style="display: none;">
+      <div class="form-group"><label for="ip">IP Address</label><input type="text" id="ip" placeholder="192.168.1.100"></div>
+      <div class="form-group"><label for="gateway">Gateway</label><input type="text" id="gateway" placeholder="192.168.1.1"></div>
+      <div class="form-group"><label for="subnet">Subnet Mask</label><input type="text" id="subnet" placeholder="255.255.255.0"></div>
+      <div class="form-group"><label for="dns1">Primary DNS</label><input type="text" id="dns1" placeholder="8.8.8.8"></div>
+      <div class="form-group"><label for="dns2">Secondary DNS</label><input type="text" id="dns2" placeholder="8.8.4.4"></div>
+    </div>
+
+    <button id="save-btn" class="btn">Save Network Config</button>
+    <div id="status"></div>
+
+    <div class="section-title">Alert Configuration</div>
+    <div class="form-group"><label for="highLimit">High Temp (°C) </label><input type="number" id="highLimit" step="0.1"></div>
+    <div class="form-group"><label for="lowLimit">Low Temp (°C) </label><input type="number" id="lowLimit" step="0.1"></div>
+    <div class="form-group"><label for="recipientPhone">Numer telefonu </label><input type="email" id="recipientPhone"></div>
+	<div class="form-group">
+	<label for="apiKey">CallMeBot API Key </label>
+	<input type="text" id="apiKey" placeholder="Get from callmebot.com">	
+	</div>
+    <div class="form-group"><label><input type="checkbox" id="alertsEnabled"> Enable Alerts</label></div>
+    <button id="save-alerts-btn" class="btn">Save Alert Config</button>
+    <div id="alertStatus"></div>
+
+  </div>
+
+  <footer>
     <a href="/">← Powrót</a>
   </footer>
-  
-  </div>
-  
+</div>
+
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Load initial config and set UI
-    fetch('/api/ipconfig')
-        .then(res => res.json())
-        .then(data => {
-            document.getElementById('dhcp').checked = data.dhcp;
-            document.getElementById('static').checked = !data.dhcp;
-            document.getElementById('static-fields').style.display = data.dhcp ? 'none' : 'block';
-            if (!data.dhcp) {
-                document.getElementById('ip').value = data.ip;
-                document.getElementById('gateway').value = data.gateway;
-                document.getElementById('subnet').value = data.subnet;
-                document.getElementById('dns1').value = data.dns1;
-                document.getElementById('dns2').value = data.dns2 || '';
-            }
-        });
-
-    // Show/hide static fields based on mode selection
-    document.querySelectorAll('input[name="ipmode"]').forEach(radio => {
-        radio.addEventListener('change', function() {
-            document.getElementById('static-fields').style.display = this.value === 'static' ? 'block' : 'none';
-        });
+  // --- Network config ---
+  fetch('/api/ipconfig')
+    .then(res => res.json())
+    .then(data => {
+      document.getElementById('dhcp').checked = data.dhcp;
+      document.getElementById('static').checked = !data.dhcp;
+      document.getElementById('static-fields').style.display = data.dhcp ? 'none' : 'block';
+      if (!data.dhcp) {
+        document.getElementById('ip').value = data.ip;
+        document.getElementById('gateway').value = data.gateway;
+        document.getElementById('subnet').value = data.subnet;
+        document.getElementById('dns1').value = data.dns1;
+        document.getElementById('dns2').value = data.dns2 || '';
+      }
     });
 
-    // Save button click handler
-    document.getElementById('save-btn').addEventListener('click', async function() {
-        const isDhcp = document.getElementById('dhcp').checked;
-        const config = { dhcp: isDhcp };
-        if (!isDhcp) {
-            config.ip = document.getElementById('ip').value;
-            config.gateway = document.getElementById('gateway').value;
-            config.subnet = document.getElementById('subnet').value;
-            config.dns1 = document.getElementById('dns1').value;
-            config.dns2 = document.getElementById('dns2').value;
-        }
-
-        try {
-            showStatus('Saving configuration...', 'info');
-
-            await fetch('/api/ipconfig', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(config),
-            });
-
-            showStatus('Configuration saved. Waiting for new IP...', 'info');
-
-            // Poll every 2 seconds for the new IP
-            const targetIp = isDhcp ? null : config.ip;
-
-            const waitForNewIp = () => new Promise((resolve, reject) => {
-                const interval = setInterval(async () => {
-                    try {
-                        const res = await fetch('/api/ipconfig');
-                        const data = await res.json();
-
-                        // If DHCP, just wait until IP is different from previous? Could also skip reload?
-                        // For static, wait until IP matches the target IP
-                        if (isDhcp || data.ip === targetIp) {
-                            clearInterval(interval);
-                            resolve();
-                        }
-                    } catch (e) {
-                        // Just ignore errors during polling
-                        console.error('Polling error:', e);
-                    }
-                }, 2000);
-            });
-
-            await waitForNewIp();
-
-            showStatus('New IP detected. Reloading...', 'success');
-            window.location.reload();
-
-        } catch (err) {
-            showStatus('Error saving configuration', 'error');
-            console.error(err);
-        }
+  document.querySelectorAll('input[name="ipmode"]').forEach(radio => {
+    radio.addEventListener('change', function() {
+      document.getElementById('static-fields').style.display = this.value === 'static' ? 'block' : 'none';
     });
+  });
 
-    function showStatus(msg, type) {
-        const status = document.getElementById('status');
-        status.textContent = msg;
-        status.className = type;
+  document.getElementById('save-btn').addEventListener('click', async function() {
+    const isDhcp = document.getElementById('dhcp').checked;
+    const config = { dhcp: isDhcp };
+    if (!isDhcp) {
+      config.ip = document.getElementById('ip').value;
+      config.gateway = document.getElementById('gateway').value;
+      config.subnet = document.getElementById('subnet').value;
+      config.dns1 = document.getElementById('dns1').value;
+      config.dns2 = document.getElementById('dns2').value;
     }
+
+    try {
+      showStatus('status', 'Saving configuration...', 'info');
+      await fetch('/api/ipconfig', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(config),
+      });
+      showStatus('status', 'Configuration saved. Waiting for new IP...', 'info');
+      window.location.reload();
+    } catch (err) {
+      showStatus('status', 'Error saving configuration', 'error');
+      console.error(err);
+    }
+  });
+// --- Alert config ---
+fetch('/api/alertconfig')
+  .then(res => res.json())
+  .then(data => {
+    document.getElementById('highLimit').value = data.high;
+    document.getElementById('lowLimit').value = data.low;
+    document.getElementById('recipientEmail').value = data.email;
+    document.getElementById('alertsEnabled').checked = data.alertsEnabled;
+  });
+
+document.getElementById('save-alerts-btn').addEventListener('click', async function() {
+  const alertConfig = {
+    high: parseFloat(document.getElementById('highLimit').value),
+    low: parseFloat(document.getElementById('lowLimit').value),
+    email: document.getElementById('recipientEmail').value,
+    alertsEnabled: document.getElementById('alertsEnabled').checked
+  };
+
+  try {
+    showStatus('alertStatus', 'Saving alert settings...', 'info');
+    await fetch('/api/alertconfig', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(alertConfig),
+    });
+    showStatus('alertStatus', 'Alert settings saved', 'success');
+  } catch (err) {
+    showStatus('alertStatus', 'Error saving alert settings', 'error');
+    console.error(err);
+  }
+});
+	// In your existing set.html JavaScript, update the alert config section:
+
+// Load alert config
+fetch('/api/alertconfig')
+  .then(res => res.json())
+  .then(data => {
+    document.getElementById('highLimit').value = data.high;
+    document.getElementById('lowLimit').value = data.low;
+    document.getElementById('recipientPhone').value = data.phone;
+    document.getElementById('apiKey').value = data.apikey;
+    document.getElementById('alertsEnabled').checked = data.alertsEnabled;
+  });
+
+// Save alert config
+document.getElementById('save-alerts-btn').addEventListener('click', async function() {
+  const alertConfig = {
+    high: parseFloat(document.getElementById('highLimit').value),
+    low: parseFloat(document.getElementById('lowLimit').value),
+    phone: document.getElementById('recipientPhone').value,
+    apikey: document.getElementById('apiKey').value,
+    alertsEnabled: document.getElementById('alertsEnabled').checked
+  };
+
+  // Validation
+  if (isNaN(alertConfig.high) || isNaN(alertConfig.low)) {
+    showStatus('alertStatus', 'Please enter valid temperature values', 'error');
+    return;
+  }
+  if (alertConfig.alertsEnabled && (!alertConfig.phone || !alertConfig.apikey)) {
+    showStatus('alertStatus', 'Phone and API key are required when alerts are enabled', 'error');
+    return;
+  }
+
+  try {
+    showStatus('alertStatus', 'Saving alert settings...', 'info');
+    const response = await fetch('/api/alertconfig', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(alertConfig)
+    });
+    
+    if (response.ok) {
+      showStatus('alertStatus', 'Settings saved successfully', 'success');
+      
+      // Send test alert if enabled
+      if (alertConfig.alertsEnabled) {
+        showStatus('alertStatus', 'Sending test alert...', 'info');
+        const testResponse = await fetch('/api/testalert', { method: 'POST' });
+        if (testResponse.ok) {
+          showStatus('alertStatus', 'Settings saved and test alert sent!', 'success');
+        } else {
+          showStatus('alertStatus', 'Settings saved but test alert failed', 'warning');
+        }
+      }
+    } else {
+      throw new Error('Server error');
+    }
+  } catch (err) {
+    showStatus('alertStatus', 'Error saving settings', 'error');
+    console.error(err);
+  }
 });
 
 
-
+  function showStatus(id, msg, type) {
+    const el = document.getElementById(id);
+    el.textContent = msg;
+    el.className = type;
+  }
+});
 </script>
 </body>
 </html>
