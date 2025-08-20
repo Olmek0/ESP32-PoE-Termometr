@@ -27,7 +27,7 @@
 <div class="Page">
   <div class="container">
     <div class='Title'>
-      <div id='TitleText'>Network Configuration</div>
+      <div id='TitleText'>Ustawienia</div>
     </div>
     <div class="form-group">
       <label><input type="radio" name="ipmode" id="dhcp" value="dhcp"> DHCP</label>
@@ -35,26 +35,26 @@
     </div>
 
     <div id="static-fields" style="display: none;">
-      <div class="form-group"><label for="ip">IP Address</label><input type="text" id="ip" placeholder="192.168.1.100"></div>
-      <div class="form-group"><label for="gateway">Gateway</label><input type="text" id="gateway" placeholder="192.168.1.1"></div>
-      <div class="form-group"><label for="subnet">Subnet Mask</label><input type="text" id="subnet" placeholder="255.255.255.0"></div>
-      <div class="form-group"><label for="dns1">Primary DNS</label><input type="text" id="dns1" placeholder="8.8.8.8"></div>
-      <div class="form-group"><label for="dns2">Secondary DNS</label><input type="text" id="dns2" placeholder="8.8.4.4"></div>
+      <div class="form-group"><label for="ip">Adres IP </label><input type="text" id="ip" placeholder="192.168.1.100"></div>
+      <div class="form-group"><label for="gateway">Brama </label><input type="text" id="gateway" placeholder="192.168.1.1"></div>
+      <div class="form-group"><label for="subnet">Maska podsieci </label><input type="text" id="subnet" placeholder="255.255.255.0"></div>
+      <div class="form-group"><label for="dns1">Serwer DNS 1 </label><input type="text" id="dns1" placeholder="8.8.8.8"></div>
+      <div class="form-group"><label for="dns2">Serwer DNS 2 </label><input type="text" id="dns2" placeholder="8.8.4.4"></div>
     </div>
 
-    <button id="save-btn" class="btn">Save Network Config</button>
-    <div id="status"></div>
+    <button id="save-btn" class="btn">Zapisz</button>
+    <div id="status"><br></div>
 
-    <div class="section-title">Alert Configuration</div>
-    <div class="form-group"><label for="highLimit">High Temp (°C) </label><input type="number" id="highLimit" step="0.1"></div>
-    <div class="form-group"><label for="lowLimit">Low Temp (°C) </label><input type="number" id="lowLimit" step="0.1"></div>
+    <div class="section-title"><br>Konfiguracja alertów</div>
+    <div class="form-group"><label for="highLimit"><br>Górny limit temperatury(°C) </label><input type="number" id="highLimit" step="0.1"></div>
+    <div class="form-group"><label for="lowLimit">Dolny limit temperatury (°C) </label><input type="number" id="lowLimit" step="0.1"></div>
     <div class="form-group"><label for="recipientPhone">Numer telefonu </label><input type="email" id="recipientPhone"></div>
 	<div class="form-group">
-	<label for="apiKey">CallMeBot API Key </label>
-	<input type="text" id="apiKey" placeholder="Get from callmebot.com">	
+	<label for="apiKey">Klucz APIKEY </label>
+	<input type="text" id="apiKey">	
 	</div>
-    <div class="form-group"><label><input type="checkbox" id="alertsEnabled"> Enable Alerts</label></div>
-    <button id="save-alerts-btn" class="btn">Save Alert Config</button>
+    <div class="form-group"><label><input type="checkbox" id="alertsEnabled"> Włącz alerty</label></div>
+    <button id="save-alerts-btn" class="btn">Zapisz</button>
     <div id="alertStatus"></div>
 
   </div>
@@ -100,16 +100,16 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     try {
-      showStatus('status', 'Saving configuration...', 'info');
+      showStatus('status', 'Zapisywanie konfiguracji...', 'info');
       await fetch('/api/ipconfig', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(config),
       });
-      showStatus('status', 'Configuration saved. Waiting for new IP...', 'info');
+      showStatus('status', 'Zapisano konfigurację. Oczekiwanie na nowe IP...', 'info');
       window.location.reload();
     } catch (err) {
-      showStatus('status', 'Error saving configuration', 'error');
+      showStatus('status', 'Błąd w zapisie konfiguracji', 'error');
       console.error(err);
     }
   });
@@ -132,21 +132,18 @@ document.getElementById('save-alerts-btn').addEventListener('click', async funct
   };
 
   try {
-    showStatus('alertStatus', 'Saving alert settings...', 'info');
+    showStatus('alertStatus', 'Zapisywanie ustawień alertów...', 'info');
     await fetch('/api/alertconfig', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(alertConfig),
     });
-    showStatus('alertStatus', 'Alert settings saved', 'success');
+    showStatus('alertStatus', 'Zapisano ustawienia alertów', 'success');
   } catch (err) {
-    showStatus('alertStatus', 'Error saving alert settings', 'error');
-    console.error(err);
+    showStatus('alertStatus', 'Błąd w zapisywaniu ustawień alertów', 'error');
+    console.error(err);                                                                                                          
   }
 });
-	// In your existing set.html JavaScript, update the alert config section:
-
-// Load alert config
 fetch('/api/alertconfig')
   .then(res => res.json())
   .then(data => {
@@ -167,18 +164,17 @@ document.getElementById('save-alerts-btn').addEventListener('click', async funct
     alertsEnabled: document.getElementById('alertsEnabled').checked
   };
 
-  // Validation
-  if (isNaN(alertConfig.high) || isNaN(alertConfig.low)) {
-    showStatus('alertStatus', 'Please enter valid temperature values', 'error');
+  if (isNaN(alertConfig.high) || isNaN(alertConfig.low) || (alertConfig.high < alertConfig.low)) {
+    showStatus('alertStatus', 'Proszę podać właściwe temperatury', 'error');
     return;
   }
   if (alertConfig.alertsEnabled && (!alertConfig.phone || !alertConfig.apikey)) {
-    showStatus('alertStatus', 'Phone and API key are required when alerts are enabled', 'error');
+    showStatus('alertStatus', 'Proszę podać numer telefonu i klucz APIKEY', 'error');
     return;
   }
 
   try {
-    showStatus('alertStatus', 'Saving alert settings...', 'info');
+    showStatus('alertStatus', 'Zapisywanie ustawień...', 'info');
     const response = await fetch('/api/alertconfig', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -186,23 +182,22 @@ document.getElementById('save-alerts-btn').addEventListener('click', async funct
     });
     
     if (response.ok) {
-      showStatus('alertStatus', 'Settings saved successfully', 'success');
+      showStatus('alertStatus', 'Zapisano ustawienia', 'success');
       
-      // Send test alert if enabled
       if (alertConfig.alertsEnabled) {
-        showStatus('alertStatus', 'Sending test alert...', 'info');
+        showStatus('alertStatus', 'Wysyłanie testowego alertu...', 'info');
         const testResponse = await fetch('/api/testalert', { method: 'POST' });
         if (testResponse.ok) {
-          showStatus('alertStatus', 'Settings saved and test alert sent!', 'success');
+          showStatus('alertStatus', 'Ustawienia zapisane i alert został wysłany', 'success');
         } else {
-          showStatus('alertStatus', 'Settings saved but test alert failed', 'warning');
+          showStatus('alertStatus', 'Ustawienia zapisane, ale nie udało się wysłać alertu', 'warning');
         }
       }
     } else {
       throw new Error('Server error');
     }
   } catch (err) {
-    showStatus('alertStatus', 'Error saving settings', 'error');
+    showStatus('alertStatus', 'Błąd w zapisywaniu ustawień alertów', 'error');
     console.error(err);
   }
 });

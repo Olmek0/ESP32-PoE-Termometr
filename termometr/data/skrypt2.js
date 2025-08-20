@@ -130,13 +130,13 @@ function renderPagination() {
     return btn;
   };  
 
-  container.appendChild(makeButton("« Prev", page - 1, page <= 1));
-  container.appendChild(makeButton("First", 1, page <= 1));
+  container.appendChild(makeButton("« Poprzednia", page - 1, page <= 1));
+  container.appendChild(makeButton("Pierwsza", 1, page <= 1));
 
   const info = document.createElement("span");
-  info.textContent = `Page ${page} of ${totalPages} (Total: ${totalRecords})`;
+  info.textContent = `Strona ${page} z ${totalPages} (Total: ${totalRecords})`;
   container.appendChild(info);
 
-  container.appendChild(makeButton("Last", totalPages, page >= totalPages));
-  container.appendChild(makeButton("Next »", page + 1, page >= totalPages));
+  container.appendChild(makeButton("Ostatnia", totalPages, page >= totalPages));
+  container.appendChild(makeButton("Następna »", page + 1, page >= totalPages));
 }
