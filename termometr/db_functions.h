@@ -2,7 +2,7 @@
 #define DB_FUNCTIONS
 
 #include "sqlite3.h"
-#include "<Arduino.h>"
+#include <Arduino.h>
 
 sqlite3 *db; // sql database
 char *zErrMsg = 0; // błąd w sql

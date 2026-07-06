@@ -1,4 +1,5 @@
 #include "db_functions.h"
+#include "variables.h"
 
 
 // baza danych, tworzona jeśli nie istnieje
@@ -11,7 +12,7 @@ void initDatabase() {
     return;
   }
 
-  // Tabela
+  // Tworzenie tabeli
   const char *create_table_sql = R"sql(
     CREATE TABLE IF NOT EXISTS logs2 (
       timestamp TEXT NOT NULL,
@@ -20,6 +21,7 @@ void initDatabase() {
     );
   )sql";
 
+  // inicjalizacja
   int rc = sqlite3_exec(db, create_table_sql, NULL, 0, &zErrMsg);
   if (rc != SQLITE_OK) {
     Serial.printf("[DB ERROR] SQL error: %s\n", zErrMsg);
@@ -151,7 +153,7 @@ void sendChartData() {
     return;
   }
 
-  // Query for last 24 hours, grouped by hour
+  // Grupowanie dla godzin
   const char *query24h = R"sql(
     SELECT 
       strftime('%Y-%m-%d %H:00', timestamp) AS hour,
@@ -163,7 +165,7 @@ void sendChartData() {
     ORDER BY hour ASC;
   )sql";
 
-  // Query for last 30 days, grouped by day
+  // Grupowanie dla dni
   const char *query30d = R"sql(
     SELECT 
       strftime('%Y-%m-%d', timestamp) AS day,
@@ -177,7 +179,7 @@ void sendChartData() {
 
   String json = "{\"type\":\"chart\"";
 
-  // 24h data
+  // Ostatnie 24 godziny
   sqlite3_stmt *stmt24;
   if (sqlite3_prepare_v2(db, query24h, -1, &stmt24, NULL) == SQLITE_OK) {
     json += ",\"data\":[";
@@ -198,7 +200,7 @@ void sendChartData() {
     Serial.printf("[DB ERROR] 24h query failed: %s\n", sqlite3_errmsg(db));
   }
 
-  // 30d data
+  // Ostatnie 30 dni
   sqlite3_stmt *stmt30;
   if (sqlite3_prepare_v2(db, query30d, -1, &stmt30, NULL) == SQLITE_OK) {
     json += ",\"monthly\":[";

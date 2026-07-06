@@ -13,12 +13,11 @@
 #include <HTTPClient.h>
 #include <UrlEncode.h>
 #include "db_functions.h"
+#include "variables.h"
 
 //// INICJALIZACJA ////
 
 #define FILESYSTEM LittleFS
-WebServer server(80); // port 80
-WebSocketsServer webSocket = WebSocketsServer(81); // port 81
 
 
 bool eth_connected = false;
@@ -494,7 +493,6 @@ void loop() {
         alertSentHigh = false;
       }
       else if (tempValc <= highTempLimit && tempValc >= lowTempLimit) {
-        // Temperature back to normal - reset alerts
         alertSentHigh = false;
         alertSentLow = false;
       }
