@@ -4,8 +4,8 @@
 #include "sqlite3.h"
 #include <Arduino.h>
 
-sqlite3 *db; // sql database
-char *zErrMsg = 0; // błąd w sql
+extern sqlite3 *db; // sql database
+extern char *zErrMsg; // błąd w sql
 
 void initDatabase();
 void logTemperature(float tempC, float tempF, const String& timestamp);

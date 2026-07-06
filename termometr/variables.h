@@ -5,7 +5,7 @@
 #include <WebServer.h>
 #include <WebSocketsServer.h>
 
-WebServer server(80); // port 80
-WebSocketsServer webSocket = WebSocketsServer(81); // port 81
+extern WebServer server; // port 80
+extern WebSocketsServer webSocket; // port 81
 
 #endif
