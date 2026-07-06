@@ -12,24 +12,14 @@
 #include <ESPmDNS.h>
 #include <HTTPClient.h>
 #include <UrlEncode.h>
-
-// WhatsApp Alert Configuration
-String whatsappAPIKey = ""; // Get from callmebot.com
-String recipientPhone = ""; // Format: "1234567890" (no +)
-float highTempLimit = 30.0;
-float lowTempLimit = 10.0;
-bool alertsEnabled = false;
-bool alertSentHigh = false;
-bool alertSentLow = false;
-#define ALERT_CONFIG_FILE "/alertconfig.txt"
+#include "db_functions.h"
 
 //// INICJALIZACJA ////
 
 #define FILESYSTEM LittleFS
 WebServer server(80); // port 80
 WebSocketsServer webSocket = WebSocketsServer(81); // port 81
-sqlite3 *db; // sql database
-char *zErrMsg = 0; // błąd w sql
+
 
 bool eth_connected = false;
 
@@ -40,10 +30,20 @@ IPAddress subnet;
 IPAddress dns1;
 IPAddress dns2;
 
-// For storing configuration
+// WhatsApp 
+String whatsappAPIKey = ""; 
+String recipientPhone = "";
+float highTempLimit = 30.0;
+float lowTempLimit = 10.0;
+bool alertsEnabled = false;
+bool alertSentHigh = false;
+bool alertSentLow = false;
+#define ALERT_CONFIG_FILE "/alertconfig.txt"
+
+// plik konfiguracji
 #define CONFIG_FILE "/ipconfig.txt"
 
-// Temperatura inicjalizacja //
+// Temperatura inicjalizacja 
 
 const int Temp = 32;
 OneWire oneWire(Temp);
@@ -113,9 +113,8 @@ void checkIPChange() {
     Serial.println(currentIP);
     lastIP = currentIP;
 
-    // If you want to save it:
     if (useDHCP) {
-      staticIP = currentIP; // update stored IP to current DHCP IP
+      staticIP = currentIP;
       saveIPConfig();
     }
   }
@@ -160,7 +159,7 @@ void WiFiEvent(WiFiEvent_t event) {
       Serial.println("[ETH] Lost IP");
       eth_connected = false;
       if (useDHCP) {
-        ETH.config(INADDR_NONE, INADDR_NONE, INADDR_NONE); // Re-enable DHCP
+        ETH.config(INADDR_NONE, INADDR_NONE, INADDR_NONE); 
       }
       break;
     default:
@@ -180,36 +179,6 @@ void handleRoot(String path, String content) {
   file.close();
 }
 
-// baza danych, tworzona jeśli nie istnieje
-
-void initDatabase() {
-  String dbPath = "/sdcard/temperature.db";
-
-  if (sqlite3_open("/sdcard/temperature.db", &db)) {
-    Serial.printf("[DB ERROR] %s\n", sqlite3_errmsg(db));
-    return;
-  }
-
-  // Create table if not exists
-  const char *create_table_sql = R"sql(
-    CREATE TABLE IF NOT EXISTS logs2 (
-      timestamp TEXT NOT NULL,
-      temperature_c REAL NOT NULL,
-      temperature_f REAL NOT NULL
-    );
-  )sql";
-
-  int rc = sqlite3_exec(db, create_table_sql, NULL, 0, &zErrMsg);
-  if (rc != SQLITE_OK) {
-    Serial.printf("[DB ERROR] SQL error: %s\n", zErrMsg);
-    sqlite3_free(zErrMsg);
-  } else {
-    Serial.println("[DB] Table ready");
-  }
-
-  sqlite3_close(db);
-}
-
 // podanie daty
 
 String getTimestamp() {
@@ -222,194 +191,6 @@ String getTimestamp() {
   return String(buf);
 }
 
-// 
-
-void logTemperature(float tempC, float tempF, const String& timestamp) {
-  if (sqlite3_open("/sdcard/temperature.db", &db)) {
-    Serial.println("[DB ERROR] Failed to open database");
-    return;
-  }
-
-  String query = "INSERT INTO logs2 (timestamp, temperature_c, temperature_f) VALUES ('" + timestamp + "', " + String(tempC, 2) + "," + String(tempF, 2) + ");";
-
-  int rc = sqlite3_exec(db, query.c_str(), NULL, 0, &zErrMsg);
-  if (rc != SQLITE_OK) {
-    Serial.printf("[DB ERROR] Insert failed: %s\n", zErrMsg);
-    sqlite3_free(zErrMsg);
-  } else {
-    Serial.println("[DB] Logged: " + timestamp + ", " + String(tempC));
-  }
-
-  sqlite3_close(db);
-}
-
-//
-
-void sendStatsOverWebSocket() {
-  if (sqlite3_open("/sdcard/temperature.db", &db)) {
-    Serial.println("[DB ERROR] Failed to open database for stats");
-    return;
-  }
-  const char* Query = R"sql(
-    SELECT 
-      COUNT(*) AS total,
-      MAX(temperature_c) AS max_temp,
-      MIN(temperature_c) AS min_temp,
-      MAX(temperature_f) AS max_tempf,
-      MIN(temperature_f) AS min_tempf,
-      DATE(MIN(timestamp)) AS first_entry
-    FROM logs2;                                                                       
-  )sql";
-
-  sqlite3_stmt *stmt;
-  int rc = sqlite3_prepare_v2(db, Query, -1, &stmt, NULL);
-
-  if (rc != SQLITE_OK) {
-    Serial.printf("[DB ERROR] Query failed: %s\n", sqlite3_errmsg(db));
-    sqlite3_close(db);
-    return;
-  }
-
-  if (sqlite3_step(stmt) == SQLITE_ROW) {
-    int total = sqlite3_column_int(stmt, 0);
-    float maxTemp = sqlite3_column_double(stmt, 1);
-    float minTemp = sqlite3_column_double(stmt, 2);
-    float maxTempf = sqlite3_column_double(stmt, 3);
-    float minTempf = sqlite3_column_double(stmt, 4);
-    const unsigned char* firstEntry = sqlite3_column_text(stmt, 5);
-
-    String start = firstEntry ? String((const char*)firstEntry) : "unknown";
-
-    String statsJson = "{\"total\":" + String(total) + ",\"max\":" + String(maxTemp) + ",\"min\":" + String(minTemp) + ",\"maxf\":" + String(maxTempf) + ",\"minf\":" + String(minTempf)
-    + ",\"start\":\"" + start + "\"}";
-
-    webSocket.broadcastTXT(statsJson);
-  }
-
-  sqlite3_finalize(stmt);
-  sqlite3_close(db);
-}void sendHistoryJson(const String& start, const String& end) {
-  if (sqlite3_open("/sdcard/temperature.db", &db)) {
-    server.send(500, "application/json", "{\"error\":\"Failed to open database\"}");
-    return;
-  }
-
-  String query = "SELECT timestamp, temperature_c, temperature_f FROM logs2 "
-                 "WHERE DATE(timestamp) >= DATE('" + start + "') AND DATE(timestamp) <= DATE('" + end + "') "
-                 "ORDER BY timestamp ASC;";
-
-  sqlite3_stmt* stmt;
-  int rc = sqlite3_prepare_v2(db, query.c_str(), -1, &stmt, NULL);
-  if (rc != SQLITE_OK) {
-    sqlite3_close(db);
-    server.send(500, "application/json", "{\"error\":\"Failed to execute query\"}");
-    return;
-  }
-  String json = "{ \"total\":0, \"data\":[";
-  bool first = true;
-  int total = 0;
-
-  while (sqlite3_step(stmt) == SQLITE_ROW) {
-    if (!first) json += ",";
-    first = false;
-    total++;
-
-    const char* ts = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0));
-    float c = sqlite3_column_double(stmt, 1);
-    float f = sqlite3_column_double(stmt, 2);
-
-    json += "{\"timestamp\":\"" + String(ts) + "\",\"c\":" + String(c, 2) + ",\"f\":" + String(f, 2) + "}";
-  }
-
-  json += "], \"total\":" + String(total) + " }";
-
-  sqlite3_finalize(stmt);
-  sqlite3_close(db);
-
-  server.send(200, "application/json", json);
-}
-
-void sendChartData() {
-  if (sqlite3_open("/sdcard/temperature.db", &db)) {
-    Serial.println("[DB ERROR] Cannot open DB for chart");
-    return;
-  }
-
-  // Query for last 24 hours, grouped by hour
-  const char *query24h = R"sql(
-    SELECT 
-      strftime('%Y-%m-%d %H:00', timestamp) AS hour,
-      AVG(temperature_c) AS avg_c,
-      AVG(temperature_f) AS avg_f
-    FROM logs2
-    WHERE timestamp >= datetime('now', '-24 hours')
-    GROUP BY hour
-    ORDER BY hour ASC;
-  )sql";
-
-  // Query for last 30 days, grouped by day
-  const char *query30d = R"sql(
-    SELECT 
-      strftime('%Y-%m-%d', timestamp) AS day,
-      AVG(temperature_c) AS avg_c,
-      AVG(temperature_f) AS avg_f
-    FROM logs2
-    WHERE timestamp >= date('now', '-30 days')
-    GROUP BY day
-    ORDER BY day ASC;
-  )sql";
-
-  String json = "{\"type\":\"chart\"";
-
-  // 24h data
-  sqlite3_stmt *stmt24;
-  if (sqlite3_prepare_v2(db, query24h, -1, &stmt24, NULL) == SQLITE_OK) {
-    json += ",\"data\":[";
-    bool first = true;
-    while (sqlite3_step(stmt24) == SQLITE_ROW) {
-      if (!first) json += ",";
-      first = false;
-
-      const char *hour = reinterpret_cast<const char *>(sqlite3_column_text(stmt24, 0));
-      float avg_c = sqlite3_column_double(stmt24, 1);
-      float avg_f = sqlite3_column_double(stmt24, 2);
-
-      json += "{\"hour\":\"" + String(hour) + "\",\"avg_c\":" + String(avg_c, 2) + ",\"avg_f\":" + String(avg_f, 2) + "}";
-    }
-    json += "]";
-    sqlite3_finalize(stmt24);
-  } else {
-    Serial.printf("[DB ERROR] 24h query failed: %s\n", sqlite3_errmsg(db));
-  }
-
-  // 30d data
-  sqlite3_stmt *stmt30;
-  if (sqlite3_prepare_v2(db, query30d, -1, &stmt30, NULL) == SQLITE_OK) {
-    json += ",\"monthly\":[";
-    bool first = true;
-    while (sqlite3_step(stmt30) == SQLITE_ROW) {
-      if (!first) json += ",";
-      first = false;
-
-      const char *day = reinterpret_cast<const char *>(sqlite3_column_text(stmt30, 0));
-      float avg_c = sqlite3_column_double(stmt30, 1);
-      float avg_f = sqlite3_column_double(stmt30, 2);
-
-      json += "{\"day\":\"" + String(day) + "\",\"avg_c\":" + String(avg_c, 2) + ",\"avg_f\":" + String(avg_f, 2) + "}";
-    }
-    json += "]";
-    sqlite3_finalize(stmt30);
-  } else {
-    Serial.printf("[DB ERROR] 30d query failed: %s\n", sqlite3_errmsg(db));
-  }
-
-  json += "}";
-
-  sqlite3_close(db);
-
-  webSocket.broadcastTXT(json);
-}
-
 TempPair GetTemperature(){
     TempPair temp;
     temp.c = String(sensors.getTempCByIndex(0));
@@ -420,16 +201,15 @@ TempPair GetTemperature(){
     return temp;
 }
 
+// Alerty WhatsApp
+
 void sendWhatsAppAlert(String message) {
   if (recipientPhone == "" || !alertsEnabled) return;
 
-  // Format phone number (add country code without +)
   String formattedPhone = recipientPhone;
   
-  // Encode message
   String encodedMessage = urlEncode(message);
   
-  // Create URL
   String url = "https://api.callmebot.com/whatsapp.php?phone=" + formattedPhone + 
                "&text=" + encodedMessage + "&apikey=" + whatsappAPIKey;
 
@@ -444,6 +224,8 @@ void sendWhatsAppAlert(String message) {
   }
   http.end();
 }
+
+// Config alertów WhatsApp - zapisz
 
 void saveAlertConfig() {
   File file = FILESYSTEM.open(ALERT_CONFIG_FILE, "w");
@@ -461,6 +243,8 @@ void saveAlertConfig() {
   file.close();
   Serial.println("[Alert] Configuration saved");
 }
+
+// Config alertów WhatsApp - wczytanie
 
 void loadAlertConfig() {
   if (!FILESYSTEM.exists(ALERT_CONFIG_FILE)) {
@@ -502,7 +286,7 @@ void setup() {
 
   sensors.begin();
 
-  if (!SD_MMC.begin("/sdcard", true)) {  // true = 1-bit mode
+  if (!SD_MMC.begin("/sdcard", true)) {
     Serial.println("[ERROR] SD_MMC mount failed!");
     return;
   }
@@ -576,15 +360,11 @@ void setup() {
     newDNS2.fromString(doc["dns2"].as<const char*>());
   }
 
-  // Get future IP address (either static or what DHCP likely assigns)
-
-  // Send success JSON BEFORE disconnecting
+  // JSON - status ok
   server.send(200, "application/json", "{\"status\":\"ok\",\"reboot\":true}");
 
-  // Delay to allow browser to finish receiving response
   delay(500);
 
-  // Now apply the new network config
   useDHCP = willUseDHCP;
   if (!willUseDHCP) {
     staticIP = newStaticIP;
@@ -595,9 +375,8 @@ void setup() {
   }
 
   saveIPConfig();
-  applyNetworkConfig();  // This may restart Ethernet
+  applyNetworkConfig();
 
-  // Optional: delay to stabilize after change
   delay(100);
 });
 
@@ -611,7 +390,6 @@ void setup() {
   sendHistoryJson(server.arg("start"), server.arg("end"));
   });
 
-    // Alert config endpoints
   server.on("/api/alertconfig", HTTP_GET, []() {
     String json = "{";
     json += "\"high\":" + String(highTempLimit, 1) + ",";
@@ -649,10 +427,10 @@ void setup() {
       return;
     }
     
-    String message = "🔔 Test Alert from ESP32 Temperature Monitor\n"
-                   "Your alert configuration is working correctly!\n"
-                   "High Limit: " + String(highTempLimit, 1) + "°C\n"
-                   "Low Limit: " + String(lowTempLimit, 1) + "°C";
+    String message = "Alert informacyjny\n"
+                   "Konfiguracja alertów powiodła się!\n"
+                   "Limit górny: " + String(highTempLimit, 1) + "°C\n"
+                   "Limit dolny: " + String(lowTempLimit, 1) + "°C";
     
     sendWhatsAppAlert(message);
     server.send(200, "application/json", "{\"status\":\"Test alert sent\"}");
@@ -698,19 +476,19 @@ void loop() {
     Serial.println("[DB] Logged temperature: " + String(tempValc) + " / " + String(tempValf) + " at " + timestamp);
         if (alertsEnabled && recipientPhone != "") {
       if (tempValc > highTempLimit && !alertSentHigh) {
-        String message = "⚠️ HIGH TEMPERATURE ALERT!\n"
-                       "Current: " + String(tempValc, 1) + "°C (" + String(tempValf, 1) + "°F)\n"
+        String message = "⚠️ Wysoka temperatura!\n"
+                       "Obecnie jest: " + String(tempValc, 1) + "°C (" + String(tempValf, 1) + "°F)\n"
                        "Limit: " + String(highTempLimit, 1) + "°C\n"
-                       "Time: " + getTimestamp();
+                       "Czas: " + getTimestamp();
         sendWhatsAppAlert(message);
         alertSentHigh = true;
         alertSentLow = false;
       } 
       else if (tempValc < lowTempLimit && !alertSentLow) {
-        String message = "⚠️ LOW TEMPERATURE ALERT!\n"
-                       "Current: " + String(tempValc, 1) + "°C (" + String(tempValf, 1) + "°F)\n"
+        String message = "⚠️ Niska temperatura!\n"
+                       "Obecnie jest: " + String(tempValc, 1) + "°C (" + String(tempValf, 1) + "°F)\n"
                        "Limit: " + String(lowTempLimit, 1) + "°C\n"
-                       "Time: " + getTimestamp();
+                       "Czas: " + getTimestamp();
         sendWhatsAppAlert(message);
         alertSentLow = true;
         alertSentHigh = false;
