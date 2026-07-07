@@ -12,12 +12,15 @@
 #include <ESPmDNS.h>
 #include <HTTPClient.h>
 #include <UrlEncode.h>
+
 #include "db_functions.h"
-#include "variables.h"
+#include "web_functions.h"
+#include "whatsapp_functions.h"
+#include "general_functions.h"
 
 //// INICJALIZACJA ////
 
-#define FILESYSTEM LittleFS
+//#define LittleFS LittleFS
 
 WebServer server(80);
 WebSocketsServer webSocket(81);
@@ -52,11 +55,6 @@ const int Temp = 32;
 OneWire oneWire(Temp);
 DallasTemperature sensors(&oneWire);
 
-struct TempPair {
-  String c;
-  String f;
-};
-
 //// FUNKCJE ////
 
 void syncTime() {
@@ -83,7 +81,7 @@ void syncTime() {
 }
 
 void saveIPConfig() {
-  File file = FILESYSTEM.open(CONFIG_FILE, "w");
+  File file = LittleFS.open(CONFIG_FILE, "w");
   if (!file) {
     Serial.println("[IP] Failed to open config file for writing");
     return;
@@ -103,12 +101,12 @@ void saveIPConfig() {
 }
 
 void loadIPConfig() {
-  if (!FILESYSTEM.exists(CONFIG_FILE)) {
+  if (!LittleFS.exists(CONFIG_FILE)) {
     Serial.println("[IP] No config file, using defaults");
     return;
   }
   
-  File file = FILESYSTEM.open(CONFIG_FILE, "r");
+  File file = LittleFS.open(CONFIG_FILE, "r");
   if (!file) {
     Serial.println("[IP] Failed to open config file");
     return;
@@ -195,104 +193,13 @@ void WiFiEvent(WiFiEvent_t event) {
 // Parse plików servera
 
 void handleRoot(String path, String content) {
-  File file = FILESYSTEM.open(path.c_str(), "r");
+  File file = LittleFS.open(path.c_str(), "r");
   if (!file) {
     server.send(500, "text/plain", "Failed to open /index.html");
     return;
   }
   server.streamFile(file, content);
   file.close();
-}
-
-// podanie daty
-
-String getTimestamp() {
-  time_t now;
-  struct tm timeinfo;
-  time(&now);
-  localtime_r(&now, &timeinfo);
-  char buf[20];
-  strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M", &timeinfo);
-  return String(buf);
-}
-
-TempPair GetTemperature(){
-    TempPair temp;
-    temp.c = String(sensors.getTempCByIndex(0));
-    temp.f = String(sensors.getTempFByIndex(0));
-    String js = "{\"c\":" + temp.c + ",\"f\":" + temp.f + "}";
-    webSocket.broadcastTXT(js);
-
-    return temp;
-}
-
-// Alerty WhatsApp
-
-void sendWhatsAppAlert(String message) {
-  if (recipientPhone == "" || !alertsEnabled) return;
-
-  String formattedPhone = recipientPhone;
-  
-  String encodedMessage = urlEncode(message);
-  
-  String url = "https://api.callmebot.com/whatsapp.php?phone=" + formattedPhone + 
-               "&text=" + encodedMessage + "&apikey=" + whatsappAPIKey;
-
-  HTTPClient http;
-  http.begin(url);
-  
-  int httpCode = http.GET();
-  if (httpCode == HTTP_CODE_OK) {
-    Serial.println("[WhatsApp] Alert sent successfully");
-  } else {
-    Serial.printf("[WhatsApp] Error sending alert: %s\n", http.errorToString(httpCode).c_str());
-  }
-  http.end();
-}
-
-// Config alertów WhatsApp - zapisz
-
-void saveAlertConfig() {
-  File file = FILESYSTEM.open(ALERT_CONFIG_FILE, "w");
-  if (!file) {
-    Serial.println("[Alert] Failed to open config file for writing");
-    return;
-  }
-  
-  file.println(alertsEnabled ? "1" : "0");
-  file.println(highTempLimit);
-  file.println(lowTempLimit);
-  file.println(recipientPhone);
-  file.println(whatsappAPIKey);
-  
-  file.close();
-  Serial.println("[Alert] Configuration saved");
-}
-
-// Config alertów WhatsApp - wczytanie
-
-void loadAlertConfig() {
-  if (!FILESYSTEM.exists(ALERT_CONFIG_FILE)) {
-    Serial.println("[Alert] No config file, using defaults");
-    return;
-  }
-  
-  File file = FILESYSTEM.open(ALERT_CONFIG_FILE, "r");
-  if (!file) {
-    Serial.println("[Alert] Failed to open config file");
-    return;
-  }
-  
-  alertsEnabled = file.readStringUntil('\n').toInt();
-  highTempLimit = file.readStringUntil('\n').toFloat();
-  lowTempLimit = file.readStringUntil('\n').toFloat();
-  recipientPhone = file.readStringUntil('\n');
-  recipientPhone.trim();
-  whatsappAPIKey = file.readStringUntil('\n');
-  whatsappAPIKey.trim();
-  
-  file.close();
-  Serial.println("[Alert] Configuration loaded");
 }
 
 //// PROGRAM
@@ -303,7 +210,7 @@ void setup() {
 
   Serial.println("[BOOT] Starting...");
 
-  if (!FILESYSTEM.begin(true)) {
+  if (!LittleFS.begin(true)) {
     Serial.println("[ERROR] LittleFS Mount Failed");
     return;
   }
@@ -320,6 +227,7 @@ void setup() {
 
   initDatabase();
 
+  loadAlertConfig(); 
   loadIPConfig();
 
   WiFi.onEvent(WiFiEvent);
@@ -377,24 +285,34 @@ void setup() {
 
   String body = server.arg("plain");
   DynamicJsonDocument doc(512);
-  deserializeJson(doc, body);
+  DeserializationError error = deserializeJson(doc, body);
+
+  if (error) {
+    server.send(400, "application/json", "{\"error\":\"Invalid JSON\",\"message\":\"" + String(error.c_str()) + "\"}");
+    return;
+  }
 
   bool willUseDHCP = doc["dhcp"];
   IPAddress newStaticIP, newGateway, newSubnet, newDNS1, newDNS2;
 
   if (!willUseDHCP) {
-    newStaticIP.fromString(doc["ip"].as<const char*>());
-    newGateway.fromString(doc["gateway"].as<const char*>());
-    newSubnet.fromString(doc["subnet"].as<const char*>());
-    newDNS1.fromString(doc["dns1"].as<const char*>());
-    newDNS2.fromString(doc["dns2"].as<const char*>());
+    // Parse and validate IP addresses
+    if (!newStaticIP.fromString(doc["ip"].as<const char*>()) ||
+        !newGateway.fromString(doc["gateway"].as<const char*>()) ||
+        !newSubnet.fromString(doc["subnet"].as<const char*>()) ||
+        !newDNS1.fromString(doc["dns1"].as<const char*>()) ||
+        !newDNS2.fromString(doc["dns2"].as<const char*>())) {
+      
+      server.send(400, "application/json", "{\"error\":\"Invalid IP format\",\"message\":\"One or more IP addresses are invalid\"}");
+      return;
+    }
   }
-
-  // JSON - status ok
+  
   server.send(200, "application/json", "{\"status\":\"ok\",\"reboot\":true}");
-
-  delay(500);
-
+  
+  // Small delay to ensure response is sent
+  delay(100);
+  // JSON - status ok
   useDHCP = willUseDHCP;
   if (!willUseDHCP) {
     staticIP = newStaticIP;
@@ -407,9 +325,7 @@ void setup() {
   saveIPConfig();
   applyNetworkConfig();
 
-  delay(100);
-});
-
+  });
 
   server.on("/api/history", HTTP_GET, []() {
   if (!server.hasArg("start") || !server.hasArg("end")) {
@@ -504,30 +420,8 @@ void loop() {
     String timestamp = getTimestamp();
     logTemperature(tempValc, tempValf, timestamp);
     Serial.println("[DB] Logged temperature: " + String(tempValc) + " / " + String(tempValf) + " at " + timestamp);
-        if (alertsEnabled && recipientPhone != "") {
-      if (tempValc > highTempLimit && !alertSentHigh) {
-        String message = "⚠️ Wysoka temperatura!\n"
-                       "Obecnie jest: " + String(tempValc, 1) + "°C (" + String(tempValf, 1) + "°F)\n"
-                       "Limit: " + String(highTempLimit, 1) + "°C\n"
-                       "Czas: " + getTimestamp();
-        sendWhatsAppAlert(message);
-        alertSentHigh = true;
-        alertSentLow = false;
-      } 
-      else if (tempValc < lowTempLimit && !alertSentLow) {
-        String message = "⚠️ Niska temperatura!\n"
-                       "Obecnie jest: " + String(tempValc, 1) + "°C (" + String(tempValf, 1) + "°F)\n"
-                       "Limit: " + String(lowTempLimit, 1) + "°C\n"
-                       "Czas: " + getTimestamp();
-        sendWhatsAppAlert(message);
-        alertSentLow = true;
-        alertSentHigh = false;
-      }
-      else if (tempValc <= highTempLimit && tempValc >= lowTempLimit) {
-        alertSentHigh = false;
-        alertSentLow = false;
-      }
-    }
+
+    checkAndSendAlerts(tempValc, tempValf, timestamp);
 
     sendChartData();
     sendStatsOverWebSocket();

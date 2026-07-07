@@ -1,7 +1,6 @@
 #include "db_functions.h"
-#include "variables.h"
-
-
+#include "web_functions.h"
+#include "general_functions.h"
 // baza danych, tworzona jeśli nie istnieje
 
 void initDatabase() {

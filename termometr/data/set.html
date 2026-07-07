@@ -2,24 +2,26 @@
 <html lang="pl">
 <head>
   <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Ustawienia</title>
   <style>
-    footer {
-      position: fixed;
-      bottom: 0;
-      width: 100%;
-      max-width: 1200px;
-      background-color: var(--secbg);
-      color: var(--wh1); 
-      text-align: center; 
-      padding: 15px 0;
-      border-top: 1px solid var(--wh2);
-    }
-    footer a { font-weight: bold; }
-    footer a:hover { text-decoration: underline; }
-    .form-group { margin-bottom: 10px; }
-    .btn { margin-top: 10px; }
-    #status, #alertStatus { margin-top: 10px; }
+
+	footer {
+	  position: fixed;
+	  bottom: 0;
+	  width: 100%;
+	  max-width: 1200px;
+	  background-color: var(--secbg);
+	  color: var(--wh1); 
+	  text-align: center; 
+	  padding: 15px 0;
+	  border-top: 1px solid var(--wh2);
+	}
+	footer a { font-weight: bold; }
+	footer a:hover { text-decoration: underline; }
+	.form-group { margin-bottom: 10px; }
+	.btn { margin-top: 10px; }
+	#status, #alertStatus { margin-top: 10px; }
   </style>
   <link rel="stylesheet" type="text/css" href="styl.css">
 </head>
@@ -29,58 +31,104 @@
     <div class='Title'>
       <div id='TitleText'>Ustawienia</div>
     </div>
-    <div class="form-group">
-      <label><input type="radio" name="ipmode" id="dhcp" value="dhcp"> DHCP</label>
-      <label><input type="radio" name="ipmode" id="static" value="static"> Static IP</label>
+
+    <!-- Network Configuration -->
+    <div class="section-title">Konfiguracja sieci</div>
+    <div class="radio-group">
+      <label><input type="radio" name="ipmode" id="dhcp" value="dhcp"> DHCP (automatyczne)</label>
+      <label><input type="radio" name="ipmode" id="static" value="static"> Statyczny IP</label>
     </div>
 
     <div id="static-fields" style="display: none;">
-      <div class="form-group"><label for="ip">Adres IP </label><input type="text" id="ip" placeholder="192.168.1.100"></div>
-      <div class="form-group"><label for="gateway">Brama </label><input type="text" id="gateway" placeholder="192.168.1.1"></div>
-      <div class="form-group"><label for="subnet">Maska podsieci </label><input type="text" id="subnet" placeholder="255.255.255.0"></div>
-      <div class="form-group"><label for="dns1">Serwer DNS 1 </label><input type="text" id="dns1" placeholder="8.8.8.8"></div>
-      <div class="form-group"><label for="dns2">Serwer DNS 2 </label><input type="text" id="dns2" placeholder="8.8.4.4"></div>
+      <div class="form-group">
+        <label for="ip">Adres IP </label>
+        <input type="text" id="ip" placeholder="np. 192.168.1.100">
+      </div>
+      <div class="form-group">
+        <label for="gateway">Brama </label>
+        <input type="text" id="gateway" placeholder="np. 192.168.1.1">
+      </div>
+      <div class="form-group">
+        <label for="subnet">Maska podsieci </label>
+        <input type="text" id="subnet" placeholder="np. 255.255.255.0">
+      </div>
+      <div class="form-group">
+        <label for="dns1">Serwer DNS 1 </label>
+        <input type="text" id="dns1" placeholder="np. 8.8.8.8">
+      </div>
+      <div class="form-group">
+        <label for="dns2">Serwer DNS 2 </label>
+        <input type="text" id="dns2" placeholder="np. 8.8.4.4">
+      </div>
     </div>
 
-    <button id="save-btn" class="btn">Zapisz</button>
-    <div id="status"><br></div>
+    <button id="save-btn" class="btn">Zapisz konfigurację sieci</button>
+    <div id="status"></div>
 
-    <div class="section-title"><br>Konfiguracja alertów</div>
-    <div class="form-group"><label for="highLimit"><br>Górny limit temperatury(°C) </label><input type="number" id="highLimit" step="0.1"></div>
-    <div class="form-group"><label for="lowLimit">Dolny limit temperatury (°C) </label><input type="number" id="lowLimit" step="0.1"></div>
-    <div class="form-group"><label for="recipientPhone">Numer telefonu </label><input type="email" id="recipientPhone"></div>
-	<div class="form-group">
-	<label for="apiKey">Klucz APIKEY </label>
-	<input type="text" id="apiKey">	
-	</div>
-    <div class="form-group"><label><input type="checkbox" id="alertsEnabled"> Włącz alerty</label></div>
-    <button id="save-alerts-btn" class="btn">Zapisz</button>
+    <!-- Alert Configuration -->
+    <div class="section-title">Konfiguracja alertów WhatsApp</div>
+    
+    <div class="form-group">
+      <label for="highLimit">Górny limit temperatury (°C)</label>
+      <input type="number" id="highLimit" step="0.1" placeholder="np. 30.0">
+    </div>
+    <div class="form-group">
+      <label for="lowLimit">Dolny limit temperatury (°C)</label>
+      <input type="number" id="lowLimit" step="0.1" placeholder="np. 10.0">
+    </div>
+    <div class="form-group">
+      <label for="recipientPhone">Numer telefonu</label>
+      <input type="text" id="recipientPhone" placeholder="np. 48123456789">
+      <span class="helper-text">Format: kod kraju + numer (bez '+' i spacji)</span>
+    </div>
+    <div class="form-group">
+      <label for="apiKey">Klucz API KEY</label>
+      <input type="text" id="apiKey" placeholder="Twój klucz API z callmebot">
+    </div>
+    <div class="form-group">
+      <label>
+        <input type="checkbox" id="alertsEnabled"> 
+        <strong>Włącz alerty WhatsApp</strong>
+      </label>
+    </div>
+
+    <div class="inline-group">
+      <button id="save-alerts-btn" class="btn">Zapisz ustawienia alertów</button>
+      <button id="test-alert-btn" class="btn test-btn">Wyślij testowy alert</button>
+    </div>
     <div id="alertStatus"></div>
 
   </div>
 
   <footer>
-    <a href="/">← Powrót</a>
+    <a href="/">← Powrót do strony głównej</a>
   </footer>
 </div>
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-  // --- Network config ---
-  fetch('/api/ipconfig')
-    .then(res => res.json())
-    .then(data => {
-      document.getElementById('dhcp').checked = data.dhcp;
-      document.getElementById('static').checked = !data.dhcp;
-      document.getElementById('static-fields').style.display = data.dhcp ? 'none' : 'block';
-      if (!data.dhcp) {
-        document.getElementById('ip').value = data.ip;
-        document.getElementById('gateway').value = data.gateway;
-        document.getElementById('subnet').value = data.subnet;
-        document.getElementById('dns1').value = data.dns1;
-        document.getElementById('dns2').value = data.dns2 || '';
-      }
-    });
+  
+	function loadNetworkConfig() {
+		fetch('/api/ipconfig')
+			.then(res => res.json())
+			.then(data => {
+				document.getElementById('dhcp').checked = data.dhcp;
+				document.getElementById('static').checked = !data.dhcp;
+				document.getElementById('static-fields').style.display = data.dhcp ? 'none' : 'block';
+
+				if (!data.dhcp) {
+					document.getElementById('ip').value = data.ip || '';
+					document.getElementById('gateway').value = data.gateway || '';
+					document.getElementById('subnet').value = data.subnet || '';
+					document.getElementById('dns1').value = data.dns1 || '';
+					document.getElementById('dns2').value = data.dns2 || '';
+				}
+			})
+			.catch(err => {
+				showStatus('status', 'Nie udało się pobrać konfiguracji sieci, odśwież stronę', 'warning');
+				console.error(err);
+			});
+	}
 
   document.querySelectorAll('input[name="ipmode"]').forEach(radio => {
     radio.addEventListener('change', function() {
@@ -88,126 +136,284 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   });
 
-  document.getElementById('save-btn').addEventListener('click', async function() {
-    const isDhcp = document.getElementById('dhcp').checked;
-    const config = { dhcp: isDhcp };
-    if (!isDhcp) {
-      config.ip = document.getElementById('ip').value;
-      config.gateway = document.getElementById('gateway').value;
-      config.subnet = document.getElementById('subnet').value;
-      config.dns1 = document.getElementById('dns1').value;
-      config.dns2 = document.getElementById('dns2').value;
-    }
-
-    try {
-      showStatus('status', 'Zapisywanie konfiguracji...', 'info');
-      await fetch('/api/ipconfig', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(config),
-      });
-      showStatus('status', 'Zapisano konfigurację. Oczekiwanie na nowe IP...', 'info');
-      window.location.reload();
-    } catch (err) {
-      showStatus('status', 'Błąd w zapisie konfiguracji', 'error');
-      console.error(err);
-    }
-  });
-// --- Alert config ---
-fetch('/api/alertconfig')
-  .then(res => res.json())
-  .then(data => {
-    document.getElementById('highLimit').value = data.high;
-    document.getElementById('lowLimit').value = data.low;
-    document.getElementById('recipientEmail').value = data.email;
-    document.getElementById('alertsEnabled').checked = data.alertsEnabled;
-  });
-
-document.getElementById('save-alerts-btn').addEventListener('click', async function() {
-  const alertConfig = {
-    high: parseFloat(document.getElementById('highLimit').value),
-    low: parseFloat(document.getElementById('lowLimit').value),
-    email: document.getElementById('recipientEmail').value,
-    alertsEnabled: document.getElementById('alertsEnabled').checked
-  };
-
-  try {
-    showStatus('alertStatus', 'Zapisywanie ustawień alertów...', 'info');
-    await fetch('/api/alertconfig', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(alertConfig),
+  // Walidacja
+  function isValidIP(ip) {
+    const pattern = /^(\d{1,3}\.){3}\d{1,3}$/; // Format to xxx.xxx.xxx.xxx
+    if (!pattern.test(ip)) return false;
+    const parts = ip.split('.');
+    return parts.every(part => {
+      const num = parseInt(part);
+      return num >= 0 && num <= 255;
     });
-    showStatus('alertStatus', 'Zapisano ustawienia alertów', 'success');
-  } catch (err) {
-    showStatus('alertStatus', 'Błąd w zapisywaniu ustawień alertów', 'error');
-    console.error(err);                                                                                                          
-  }
-});
-fetch('/api/alertconfig')
-  .then(res => res.json())
-  .then(data => {
-    document.getElementById('highLimit').value = data.high;
-    document.getElementById('lowLimit').value = data.low;
-    document.getElementById('recipientPhone').value = data.phone;
-    document.getElementById('apiKey').value = data.apikey;
-    document.getElementById('alertsEnabled').checked = data.alertsEnabled;
-  });
-
-// Save alert config
-document.getElementById('save-alerts-btn').addEventListener('click', async function() {
-  const alertConfig = {
-    high: parseFloat(document.getElementById('highLimit').value),
-    low: parseFloat(document.getElementById('lowLimit').value),
-    phone: document.getElementById('recipientPhone').value,
-    apikey: document.getElementById('apiKey').value,
-    alertsEnabled: document.getElementById('alertsEnabled').checked
-  };
-
-  if (isNaN(alertConfig.high) || isNaN(alertConfig.low) || (alertConfig.high < alertConfig.low)) {
-    showStatus('alertStatus', 'Proszę podać właściwe temperatury', 'error');
-    return;
-  }
-  if (alertConfig.alertsEnabled && (!alertConfig.phone || !alertConfig.apikey)) {
-    showStatus('alertStatus', 'Proszę podać numer telefonu i klucz APIKEY', 'error');
-    return;
   }
 
-  try {
-    showStatus('alertStatus', 'Zapisywanie ustawień...', 'info');
-    const response = await fetch('/api/alertconfig', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(alertConfig)
-    });
-    
-    if (response.ok) {
-      showStatus('alertStatus', 'Zapisano ustawienia', 'success');
-      
-      if (alertConfig.alertsEnabled) {
-        showStatus('alertStatus', 'Wysyłanie testowego alertu...', 'info');
-        const testResponse = await fetch('/api/testalert', { method: 'POST' });
-        if (testResponse.ok) {
-          showStatus('alertStatus', 'Ustawienia zapisane i alert został wysłany', 'success');
-        } else {
-          showStatus('alertStatus', 'Ustawienia zapisane, ale nie udało się wysłać alertu', 'warning');
+  function validateNetworkConfig(data) {
+    if (!data.dhcp) {
+      // Check if all fields are filled
+      const fields = ['ip', 'gateway', 'subnet', 'dns1', 'dns2'];
+      for (let field of fields) {
+        const value = document.getElementById(field).value.trim();
+        if (!value) {
+          showStatus('status', `Pole "${field}" nie może być puste`, 'error');
+          return false;
+        }
+        if (field !== 'dns2' && !isValidIP(value)) {
+          showStatus('status', `Nieprawidłowy adres w polu "${field}"`, 'error');
+          return false;
+        }
+        if (field === 'dns2' && value && !isValidIP(value)) {
+          showStatus('status', `Nieprawidłowy adres DNS2`, 'error');
+          return false;
         }
       }
-    } else {
-      throw new Error('Server error');
     }
-  } catch (err) {
-    showStatus('alertStatus', 'Błąd w zapisywaniu ustawień alertów', 'error');
-    console.error(err);
+    return true;
   }
-});
+	function checkServerOnline(retries, delay) {
+		return new Promise((resolve, reject) => {
+			let attempts = 0;
+			const maxAttempts = retries || 30;
+			const interval = delay || 1000;
+			
+			function check() {
+				attempts++;
+				fetch('/api/ipconfig')
+					.then(res => {
+						if (res.ok) {
+							resolve(true);
+						} else {
+							throw new Error('Serwer nie jest gotowu');
+						}
+					})
+					.catch(() => {
+						if (attempts < maxAttempts) {
+							setTimeout(check, interval);
+						} else {
+							reject(new Error('Serwer nie odpowiada po ' + maxAttempts + ' próbach'));
+						}
+					});
+			}
+			
+			check();
+		});
+	}
 
+  document.getElementById('save-btn').addEventListener('click', async function() {
+		const isDhcp = document.getElementById('dhcp').checked;
+		const config = { dhcp: isDhcp };
+
+		if (!isDhcp) {
+			config.ip = document.getElementById('ip').value.trim();
+			config.gateway = document.getElementById('gateway').value.trim();
+			config.subnet = document.getElementById('subnet').value.trim();
+			config.dns1 = document.getElementById('dns1').value.trim();
+			config.dns2 = document.getElementById('dns2').value.trim();
+		}
+
+		if (!validateNetworkConfig(config)) return;
+
+		showStatus('status', 'Testowanie i zapisywanie konfiguracji...', 'info');
+		this.disabled = true;
+		this.textContent = 'Zapisywanie...';
+
+		try {
+			// Send the configuration
+			const response = await fetch('/api/ipconfig', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(config),
+			});
+
+			if (response.ok) {
+				const data = await response.json();
+				
+				showStatus('status', 'Konfiguracja zapisana. Oczekiwanie na restart sieci...', 'info');
+				
+				try {
+					await checkServerOnline(30, 1000);
+					showStatus('status', 'Urządzenie jest ponownie dostępne! Odświeżanie strony...', 'success');
+					
+					setTimeout(() => {
+						window.location.reload();
+					}, 2000);
+				} catch (timeoutError) {
+					showStatus('status', 'Urządzenie nie odpowiada po zmianie konfiguracji.<br>' +
+						'Sprawdź nowy adres IP i spróbuj ponownie połączyć się ręcznie.', 'warning');
+					this.disabled = false;
+					this.textContent = 'Zapisz konfigurację sieci';
+				}
+			} else {
+				const data = await response.json();
+				let errorMsg = data.message || data.error || 'Nieznany błąd';
+				if (data.suggestion) {
+					errorMsg += `<br>${data.suggestion}`;
+				}
+				showStatus('status', `${errorMsg}`, 'error');
+				this.disabled = false;
+				this.textContent = 'Zapisz konfigurację sieci';
+			}
+		} catch (err) {
+			if (err.message.includes('Failed to fetch') || err.message.includes('Connection reset')) {
+				showStatus('status', 'Połączenie przerwane podczas zmiany konfiguracji.<br>' +
+					'Oczekiwanie na ponowne połączenie z urządzeniem...', 'info');
+				
+				try {
+					await checkServerOnline(30, 1000);
+					showStatus('status', 'Urządzenie jest ponownie dostępne... Odświeżanie strony...', 'success');
+					
+					setTimeout(() => {
+						window.location.reload();
+					}, 2000);
+				} catch (timeoutError) {
+					showStatus('status', 'Urządzenie nie odpowiada po zmianie konfiguracji.<br>' +
+						'Sprawdź nowy adres IP i spróbuj ponownie połączyć się ręcznie.<br>' +
+						'Jeśli używasz statycznego IP, upewnij się, że adres jest poprawny.', 'warning');
+					this.disabled = false;
+					this.textContent = 'Zapisz konfigurację sieci';
+				}
+			} else {
+				showStatus('status', `Błąd: ${err.message || 'Nieznany błąd'}`, 'error');
+				console.error(err);
+				this.disabled = false;
+				this.textContent = 'Zapisz konfigurację sieci';
+			}
+		}
+	});
+	
+  function loadAlertConfig() {
+    fetch('/api/alertconfig')
+      .then(res => res.json())
+      .then(data => {
+        document.getElementById('highLimit').value = data.high;
+        document.getElementById('lowLimit').value = data.low;
+        document.getElementById('recipientPhone').value = data.phone || '';
+        document.getElementById('apiKey').value = data.apikey || '';
+        document.getElementById('alertsEnabled').checked = data.alertsEnabled || false;
+      })
+      .catch(err => {
+        showStatus('alertStatus', 'Nie udało się pobrać konfiguracji alertów', 'error');
+        console.error(err);
+      });
+  }
+
+  document.getElementById('save-alerts-btn').addEventListener('click', async function() {
+    const highLimit = parseFloat(document.getElementById('highLimit').value);
+    const lowLimit = parseFloat(document.getElementById('lowLimit').value);
+    const phone = document.getElementById('recipientPhone').value.trim();
+    const apikey = document.getElementById('apiKey').value.trim();
+    const alertsEnabled = document.getElementById('alertsEnabled').checked;
+
+    if (isNaN(highLimit) || isNaN(lowLimit)) {
+      showStatus('alertStatus', 'Proszę podać prawidłowe wartości temperatur', 'error');
+      return;
+    }
+    if (highLimit <= lowLimit) {
+      showStatus('alertStatus', 'Górny limit musi być większy od dolnego', 'error');
+      return;
+    }
+    if (alertsEnabled && (!phone || !apikey)) {
+      showStatus('alertStatus', 'Przy włączonych alertach należy podać numer telefonu i klucz API', 'error');
+      return;
+    }
+
+    const alertConfig = {
+      high: highLimit,
+      low: lowLimit,
+      phone: phone,
+      apikey: apikey,
+      alertsEnabled: alertsEnabled
+    };
+
+    showStatus('alertStatus', 'Zapisywanie ustawień alertów...', 'info');
+    this.disabled = true;
+    this.textContent = 'Zapisywanie...';
+
+    try {
+      const response = await fetch('/api/alertconfig', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(alertConfig)
+      });
+
+      if (response.ok) {
+        showStatus('alertStatus', 'Ustawienia alertów zapisane pomyślnie', 'success');
+        
+        if (alertsEnabled) {
+          showStatus('alertStatus', 'Wysyłanie testowego alertu...', 'info');
+          
+          const testResponse = await fetch('/api/testalert', { 
+            method: 'POST' 
+          });
+          
+          const testData = await testResponse.json();
+          
+          if (testResponse.ok) {
+            showStatus('alertStatus', 'Ustawienia zapisane. Testowy alert wysłany pomyślnie!', 'success');
+          } else {
+            showStatus('alertStatus', `Ustawienia zapisane, ale testowy alert nie został wysłany: ${testData.error || 'Unknown error'}`, 'warning');
+          }
+        }
+      } else {
+        const errorData = await response.json();
+        showStatus('alertStatus', `Błąd zapisu: ${errorData.error || 'Unknown error'}`, 'error');
+      }
+    } catch (err) {
+      showStatus('alertStatus', 'Błąd połączenia z serwerem', 'error');
+      console.error(err);
+    } finally {
+      this.disabled = false;
+      this.textContent = 'Zapisz ustawienia alertów';
+    }
+  });
+
+  document.getElementById('test-alert-btn').addEventListener('click', async function() {
+    const alertsEnabled = document.getElementById('alertsEnabled').checked;
+    
+    if (!alertsEnabled) {
+      showStatus('alertStatus', 'Alerty są wyłączone. Włącz je najpierw.', 'warning');
+      return;
+    }
+
+    const phone = document.getElementById('recipientPhone').value.trim();
+    const apikey = document.getElementById('apiKey').value.trim();
+    
+    if (!phone || !apikey) {
+      showStatus('alertStatus', 'Brak numeru telefonu lub klucza API', 'error');
+      return;
+    }
+
+    showStatus('alertStatus', 'Wysyłanie testowego alertu...', 'info');
+    this.disabled = true;
+    this.textContent = 'Wysyłanie...';
+
+    try {
+      const response = await fetch('/api/testalert', { method: 'POST' });
+      const data = await response.json();
+
+      if (response.ok) {
+        showStatus('alertStatus', 'Testowy alert wysłany pomyślnie!', 'success');
+      } else {
+        showStatus('alertStatus', `Błąd wysyłki: ${data.error || 'Unknown error'}`, 'error');
+      }
+    } catch (err) {
+      showStatus('alertStatus', 'Błąd połączenia z serwerem', 'error');
+      console.error(err);
+    } finally {
+      this.disabled = false;
+      this.textContent = 'Wyślij testowy alert';
+    }
+  });
 
   function showStatus(id, msg, type) {
     const el = document.getElementById(id);
-    el.textContent = msg;
-    el.className = type;
+    el.innerHTML = msg;
+    el.className = type || '';
+    el.style.display = 'block';
   }
+
+  loadNetworkConfig();
+  loadAlertConfig();
+
 });
 </script>
 </body>
