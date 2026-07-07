@@ -75,7 +75,7 @@ void loadAlertConfig() {
 
 void checkAndSendAlerts(float tempC, float tempF, String timestamp) {
   
-  if (alertsEnabled && recipientPhone != "") {
+  if (!alertsEnabled && recipientPhone == "") {
     return;
   }
   if (tempC > highTempLimit && !alertSentHigh) {
