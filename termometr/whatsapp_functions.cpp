@@ -38,6 +38,7 @@ void saveAlertConfig() {
   }
   
   file.println(alertsEnabled ? "1" : "0");
+  file.println(testEnabled ? "1" : "0");
   file.println(highTempLimit);
   file.println(lowTempLimit);
   file.println(recipientPhone);
@@ -62,6 +63,7 @@ void loadAlertConfig() {
   }
   
   alertsEnabled = file.readStringUntil('\n').toInt();
+  testEnabled = file.readStringUntil('\n').toInt();
   highTempLimit = file.readStringUntil('\n').toFloat();
   lowTempLimit = file.readStringUntil('\n').toFloat();
   recipientPhone = file.readStringUntil('\n');

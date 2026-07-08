@@ -42,6 +42,9 @@ String recipientPhone = "";
 float highTempLimit = 30.0;
 float lowTempLimit = 10.0;
 bool alertsEnabled = false;
+
+bool testEnabled = false;
+
 bool alertSentHigh = false;
 bool alertSentLow = false;
 #define ALERT_CONFIG_FILE "/alertconfig.txt"
@@ -312,7 +315,7 @@ void setup() {
   
   // Small delay to ensure response is sent
   delay(100);
-  // JSON - status ok
+
   useDHCP = willUseDHCP;
   if (!willUseDHCP) {
     staticIP = newStaticIP;
@@ -342,7 +345,8 @@ void setup() {
     json += "\"low\":" + String(lowTempLimit, 1) + ",";
     json += "\"phone\":\"" + recipientPhone + "\",";
     json += "\"apikey\":\"" + whatsappAPIKey + "\",";
-    json += "\"alertsEnabled\":" + String(alertsEnabled ? "true" : "false");
+    json += "\"alertsEnabled\":" + String(alertsEnabled ? "true" : "false") + ",";
+    json += "\"testEnabled\":" + String(testEnabled ? "true" : "false");
     json += "}";
     server.send(200, "application/json", json);
   });
@@ -362,6 +366,7 @@ void setup() {
     recipientPhone = doc["phone"].as<String>();
     whatsappAPIKey = doc["apikey"].as<String>();
     alertsEnabled = doc["alertsEnabled"];
+    testEnabled = doc["testEnabled"];
     
     saveAlertConfig();
     server.send(200, "application/json", "{\"status\":\"ok\"}");
@@ -403,8 +408,8 @@ void setup() {
 
 unsigned long lastTempRequest = 0;
 unsigned long lastDbInsert = 0;
-const unsigned long tempInterval = 5000;
-const unsigned long dbInsertInterval = 300000;
+const unsigned long tempInterval = 5000; //5s
+const unsigned long dbInsertInterval = 300000; // 5min
 
 void loop() {
   server.handleClient();

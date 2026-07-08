@@ -14,6 +14,8 @@ extern String recipientPhone;
 extern float highTempLimit;
 extern float lowTempLimit;
 extern bool alertsEnabled;
+extern bool testEnabled;
+
 extern bool alertSentHigh;
 extern bool alertSentLow;
 
