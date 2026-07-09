@@ -17,5 +17,6 @@ struct TempPair {
 
 String getTimestamp();
 TempPair GetTemperature();
+void syncTime();
 
 #endif

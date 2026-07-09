@@ -20,8 +20,6 @@
 
 //// INICJALIZACJA ////
 
-//#define LittleFS LittleFS
-
 WebServer server(80);
 WebSocketsServer webSocket(81);
 sqlite3 *db;
@@ -36,6 +34,8 @@ IPAddress subnet;
 IPAddress dns1;
 IPAddress dns2;
 
+IPAddress lastIP;
+
 // WhatsApp 
 String whatsappAPIKey = ""; 
 String recipientPhone = "";
@@ -47,10 +47,6 @@ bool testEnabled = false;
 
 bool alertSentHigh = false;
 bool alertSentLow = false;
-#define ALERT_CONFIG_FILE "/alertconfig.txt"
-
-// plik konfiguracji
-#define CONFIG_FILE "/ipconfig.txt"
 
 // Temperatura inicjalizacja 
 
@@ -58,152 +54,6 @@ const int Temp = 32;
 OneWire oneWire(Temp);
 DallasTemperature sensors(&oneWire);
 
-//// FUNKCJE ////
-
-void syncTime() {
-  Serial.println("[TIME] Syncing with NTP...");
-  
-  // Set timezone (Poland)
-  configTzTime("CET-1CEST,M3.5.0/2,M10.5.0/3", "pool.ntp.org", "time.google.com", "time.windows.com");
-  
-  // Wait for time to sync (with timeout)
-  int attempts = 0;
-  while (attempts < 20) {  // 20 seconds timeout
-    struct tm timeinfo;
-    if (getLocalTime(&timeinfo, 1000)) {
-      Serial.printf("[TIME] Synced: %04d-%02d-%02d %02d:%02d:%02d\n", 
-                    timeinfo.tm_year + 1900, timeinfo.tm_mon + 1, timeinfo.tm_mday,
-                    timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
-      return;
-    }
-    Serial.print(".");
-    attempts++;
-  }
-  
-  Serial.println("\n[TIME] ⚠️ Time sync failed! Will retry later.");
-}
-
-void saveIPConfig() {
-  File file = LittleFS.open(CONFIG_FILE, "w");
-  if (!file) {
-    Serial.println("[IP] Failed to open config file for writing");
-    return;
-  }
-  
-  file.println(useDHCP ? "dhcp" : "static");
-  if (!useDHCP) {
-    file.println(staticIP.toString());
-    file.println(gateway.toString());
-    file.println(subnet.toString());
-    file.println(dns1.toString());
-    file.println(dns2.toString());
-  }
-  
-  file.close();
-  Serial.println("[IP] Configuration saved");
-}
-
-void loadIPConfig() {
-  if (!LittleFS.exists(CONFIG_FILE)) {
-    Serial.println("[IP] No config file, using defaults");
-    return;
-  }
-  
-  File file = LittleFS.open(CONFIG_FILE, "r");
-  if (!file) {
-    Serial.println("[IP] Failed to open config file");
-    return;
-  }
-  
-  String mode = file.readStringUntil('\n');
-  mode.trim();
-  useDHCP = (mode == "dhcp");
-  
-  if (!useDHCP) {
-    staticIP.fromString(file.readStringUntil('\n'));
-    gateway.fromString(file.readStringUntil('\n'));
-    subnet.fromString(file.readStringUntil('\n'));
-    dns1.fromString(file.readStringUntil('\n'));
-    dns2.fromString(file.readStringUntil('\n'));
-  }
-  
-  file.close();
-  Serial.println("[IP] Configuration loaded");
-}
-
-IPAddress lastIP;
-
-void checkIPChange() {
-  IPAddress currentIP = ETH.localIP();
-  if (currentIP != lastIP) {
-    Serial.print("[ETH] IP changed to: ");
-    Serial.println(currentIP);
-    lastIP = currentIP;
-
-    if (useDHCP) {
-      staticIP = currentIP;
-      saveIPConfig();
-    }
-  }
-}
-
-void applyNetworkConfig() {
-  if (useDHCP) {
-    ETH.config(INADDR_NONE, INADDR_NONE, INADDR_NONE);
-    Serial.println("[IP] Using DHCP");
-  } else {
-    ETH.config(staticIP, gateway, subnet, dns1, dns2);
-    Serial.println("[IP] Using static IP: " + staticIP.toString());
-  }
-}
-
-// Utworzenie servera
-
-void WiFiEvent(WiFiEvent_t event) {
-  switch (event) {
-    case ARDUINO_EVENT_ETH_START:
-      Serial.println("[ETH] Started");
-      ETH.setHostname("esp32-poe");
-      break;
-    case ARDUINO_EVENT_ETH_CONNECTED:
-      Serial.println("[ETH] Connected");
-      break;
-    case ARDUINO_EVENT_ETH_GOT_IP:
-      Serial.print("[ETH] Got IP: ");
-      Serial.println(ETH.localIP());
-      eth_connected = true;
-      break;
-    case ARDUINO_EVENT_ETH_DISCONNECTED:
-      Serial.println("[ETH] Disconnected");
-      eth_connected = false;
-      break;
-    case ARDUINO_EVENT_ETH_STOP:
-      Serial.println("[ETH] Stopped");
-      eth_connected = false;
-      break;
-    case ARDUINO_EVENT_ETH_LOST_IP:
-      Serial.println("[ETH] Lost IP");
-      eth_connected = false;
-      if (useDHCP) {
-        ETH.config(INADDR_NONE, INADDR_NONE, INADDR_NONE); 
-      }
-      break;
-    default:
-      break;
-  }
-}
-
-// Parse plików servera
-
-void handleRoot(String path, String content) {
-  File file = LittleFS.open(path.c_str(), "r");
-  if (!file) {
-    server.send(500, "text/plain", "Failed to open /index.html");
-    return;
-  }
-  server.streamFile(file, content);
-  file.close();
-}
 
 //// PROGRAM
 
@@ -246,7 +96,7 @@ void setup() {
   Serial.println();
   
  if (eth_connected) {
-  // We have internet, sync time
+
   syncTime();
   } else {
   Serial.println("[TIME] ⚠️ No network, time will be incorrect!");
@@ -299,7 +149,6 @@ void setup() {
   IPAddress newStaticIP, newGateway, newSubnet, newDNS1, newDNS2;
 
   if (!willUseDHCP) {
-    // Parse and validate IP addresses
     if (!newStaticIP.fromString(doc["ip"].as<const char*>()) ||
         !newGateway.fromString(doc["gateway"].as<const char*>()) ||
         !newSubnet.fromString(doc["subnet"].as<const char*>()) ||
@@ -313,7 +162,6 @@ void setup() {
   
   server.send(200, "application/json", "{\"status\":\"ok\",\"reboot\":true}");
   
-  // Small delay to ensure response is sent
   delay(100);
 
   useDHCP = willUseDHCP;

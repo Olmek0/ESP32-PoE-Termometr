@@ -61,11 +61,24 @@ void loadAlertConfig() {
     Serial.println("[Alert] Failed to open config file");
     return;
   }
+  String tempStr;
   
-  alertsEnabled = file.readStringUntil('\n').toInt();
-  testEnabled = file.readStringUntil('\n').toInt();
-  highTempLimit = file.readStringUntil('\n').toFloat();
-  lowTempLimit = file.readStringUntil('\n').toFloat();
+  tempStr = file.readStringUntil('\n');
+  tempStr.trim();
+  alertsEnabled = tempStr.toInt();
+
+  tempStr = file.readStringUntil('\n');
+  tempStr.trim();
+  testEnabled = tempStr.toInt();
+
+  tempStr = file.readStringUntil('\n');
+  tempStr.trim();
+  highTempLimit = tempStr.toFloat();
+
+  tempStr = file.readStringUntil('\n');
+  tempStr.trim();
+  lowTempLimit = tempStr.toFloat();
+
   recipientPhone = file.readStringUntil('\n');
   recipientPhone.trim();
   whatsappAPIKey = file.readStringUntil('\n');
