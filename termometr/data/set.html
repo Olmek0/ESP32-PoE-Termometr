@@ -38,9 +38,10 @@
 <body>
 <div class="Page">
   <div class="container">
-    <div class='Title'>
-      <div id='TitleText'>Ustawienia</div>
-    </div>
+        <div class="Title ShadowL">
+            <div id="Titletext">Ustawienia</div>
+            <div id="toggleUnit" class="FlexCentre"><span>°C</span></div>
+        </div>
 
     <!-- Network Configuration -->
     <div class="section-title">Konfiguracja sieci</div>
@@ -75,7 +76,6 @@
     <button id="save-btn" class="btn">Zapisz konfigurację sieci</button>
     <div id="status"></div>
 
-    <!-- Alert Configuration -->
     <div class="section-title">Konfiguracja alertów WhatsApp</div>
     
     <div class="form-group">
@@ -452,8 +452,45 @@ document.addEventListener('DOMContentLoaded', function() {
 	setInterval(() => {
 		cooldown('update');
 	}, 1000);
+	
+	const toggleUnit = document.getElementById('toggleUnit');
+	const unitSpan = toggleUnit.querySelector('span');
+
+	const savedUnit = localStorage.getItem('tempUnit');
+	unitSpan.textContent = savedUnit === 'F' ? '°F' : '°C';
+
+	toggleUnit.addEventListener('click', function() {
+		const currentUnit = unitSpan.textContent;
+		const newUnit = currentUnit === '°C' ? 'F' : 'C';
+		
+		localStorage.setItem('tempUnit', newUnit);
+		unitSpan.textContent = newUnit === 'F' ? '°F' : '°C';
+		
+    fadeText(document.getElementById("toggleUnit").querySelector('span'), currentUnit);
+		
+	});
+	
+	function fadeText(element, newText) {
+    if (!element) return;
+
+    const targetElement = element.querySelector('span') || element;
+
+    targetElement.classList.remove('fade-in');
+    targetElement.classList.add('fade-out');
+
+    setTimeout(() => {
+        targetElement.textContent = newText;
+        targetElement.classList.remove('fade-out');
+        targetElement.classList.add('fade-in');
+
+        setTimeout(() => {
+            targetElement.classList.remove('fade-in');
+        }, 300); 
+    }, 300); 
+	}
 
 });
 </script>
+
 </body>
 </html>

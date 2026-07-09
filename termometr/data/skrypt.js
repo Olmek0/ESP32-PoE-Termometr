@@ -173,9 +173,6 @@ setTimeout(() => {
   chartCanvas.style.opacity = '1';
 }, 50); 
 
-
-
-
 let Bar, Menu;
 
 function handleGlobalInteraction(e) {
