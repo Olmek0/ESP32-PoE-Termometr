@@ -205,16 +205,16 @@ window.addEventListener('DOMContentLoaded', () => {
     document.addEventListener('keydown', handleGlobalInteraction);
 
     document.getElementById("toggleUnit").addEventListener("click", () => {
-        useFahrenheit = !useFahrenheit;
-        localStorage.setItem("tempUnit", useFahrenheit ? "F" : "C");
-        const text = useFahrenheit ? "°F" : "°C";
-        fadeText(document.getElementById("toggleUnit").querySelector('span'), text);
-        updateDisplayedTemp();
-        updateStatsDisplay();
-        updateTemperatureStats();
-		updateChartForCurrentUnit();
-		updateMonthlyChartDisplay();
-		UpdateChartLegend();
+			useFahrenheit = !useFahrenheit;
+			localStorage.setItem("tempUnit", useFahrenheit ? "F" : "C");
+			const text = useFahrenheit ? "°F" : "°C";
+			fadeText(document.getElementById("toggleUnit").querySelector('span'), text);
+			updateDisplayedTemp();
+			updateStatsDisplay();
+			updateTemperatureStats();
+			updateChartForCurrentUnit();
+			updateMonthlyChartDisplay();
+			UpdateChartLegend();
     });
 
     const savedUnit = localStorage.getItem("tempUnit");

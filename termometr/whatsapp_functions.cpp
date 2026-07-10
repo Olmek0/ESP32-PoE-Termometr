@@ -41,6 +41,9 @@ void saveAlertConfig() {
   file.println(testEnabled ? "1" : "0");
   file.println(highTempLimit);
   file.println(lowTempLimit);
+  file.println(highTempLimitF);
+  file.println(lowTempLimitF);
+  file.println(alertUseFahrenheit ? "1" : "0"); // <-- Added
   file.println(recipientPhone);
   file.println(whatsappAPIKey);
   
@@ -63,55 +66,59 @@ void loadAlertConfig() {
   }
   String tempStr;
   
-  tempStr = file.readStringUntil('\n');
-  tempStr.trim();
+  tempStr = file.readStringUntil('\n'); tempStr.trim(); 
   alertsEnabled = tempStr.toInt();
 
-  tempStr = file.readStringUntil('\n');
-  tempStr.trim();
+  tempStr = file.readStringUntil('\n'); tempStr.trim(); 
   testEnabled = tempStr.toInt();
 
-  tempStr = file.readStringUntil('\n');
-  tempStr.trim();
+  tempStr = file.readStringUntil('\n'); tempStr.trim(); 
   highTempLimit = tempStr.toFloat();
 
-  tempStr = file.readStringUntil('\n');
-  tempStr.trim();
+  tempStr = file.readStringUntil('\n'); tempStr.trim(); 
   lowTempLimit = tempStr.toFloat();
+  tempStr = file.readStringUntil('\n'); tempStr.trim(); 
+  highTempLimitF = tempStr.toFloat();
+  tempStr = file.readStringUntil('\n'); tempStr.trim(); 
+  lowTempLimitF = tempStr.toFloat();
+  
+  tempStr = file.readStringUntil('\n'); tempStr.trim(); 
+  alertUseFahrenheit = tempStr.toInt();
 
-  recipientPhone = file.readStringUntil('\n');
-  recipientPhone.trim();
-  whatsappAPIKey = file.readStringUntil('\n');
-  whatsappAPIKey.trim();
+  recipientPhone = file.readStringUntil('\n'); recipientPhone.trim();
+  whatsappAPIKey = file.readStringUntil('\n'); whatsappAPIKey.trim();
   
   file.close();
   Serial.println("[Alert] Configuration loaded");
 }
 
-void checkAndSendAlerts(float tempC, float tempF, String timestamp) {
-  
-  if (!alertsEnabled && recipientPhone == "") {
-    return;
-  }
-  if (tempC > highTempLimit && !alertSentHigh) {
+void checkAndSendAlerts(bool useFahrenheit, float currentTemp, String timestamp) {
+  if (!alertsEnabled || recipientPhone == "") return;
+
+  // Select the appropriate limits based on the configuration unit
+  float highLimit = useFahrenheit ? highTempLimitF : highTempLimit;
+  float lowLimit  = useFahrenheit ? lowTempLimitF : lowTempLimit;
+  String unitStr  = useFahrenheit ? "°F" : "°C";
+
+  if (currentTemp > highLimit && !alertSentHigh) {
     String message = "Wysoka temperatura!\n"
-                    "Obecnie jest: " + String(tempC, 1) + "°C (" + String(tempF, 1) + "°F)\n"
-                    "Limit: " + String(highTempLimit, 1) + "°C\n"
-                    "Czas: " + getTimestamp();
+                     "Obecnie jest: " + String(currentTemp, 1) + unitStr + "\n"
+                     "Limit: " + String(highLimit, 1) + unitStr + "\n"
+                     "Czas: " + timestamp;
     sendWhatsAppAlert(message);
     alertSentHigh = true;
     alertSentLow = false;
   } 
-  else if (tempC < lowTempLimit && !alertSentLow) {
+  else if (currentTemp < lowLimit && !alertSentLow) {
     String message = "Niska temperatura!\n"
-                    "Obecnie jest: " + String(tempC, 1) + "°C (" + String(tempF, 1) + "°F)\n"
-                    "Limit: " + String(lowTempLimit, 1) + "°C\n"
-                    "Czas: " + getTimestamp();
+                     "Obecnie jest: " + String(currentTemp, 1) + unitStr + "\n"
+                     "Limit: " + String(lowLimit, 1) + unitStr + "\n"
+                     "Czas: " + timestamp;
     sendWhatsAppAlert(message);
     alertSentLow = true;
     alertSentHigh = false;
   }
-  else if (tempC <= highTempLimit && tempC >= lowTempLimit) {
+  else if (currentTemp <= highLimit && currentTemp >= lowLimit) {
     alertSentHigh = false;
     alertSentLow = false;
   }

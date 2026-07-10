@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Ustawienia</title>
   <style>
-
 	footer {
 	  position: fixed;
 	  bottom: 0;
@@ -31,19 +30,17 @@
 		opacity: 0.6;
 		cursor: not-allowed;
 	}
-	
   </style>
   <link rel="stylesheet" type="text/css" href="styl.css">
 </head>
 <body>
 <div class="Page">
   <div class="container">
-        <div class="Title ShadowL">
-            <div id="Titletext">Ustawienia</div>
-            <div id="toggleUnit" class="FlexCentre"><span>°C</span></div>
-        </div>
+		<div class="Title ShadowL">
+			<div id="Titletext">Ustawienia</div>
+			<div id="toggleUnit" class="FlexCentre"><span>°C</span></div>
+		</div>
 
-    <!-- Network Configuration -->
     <div class="section-title">Konfiguracja sieci</div>
     <div class="radio-group">
       <label><input type="radio" name="ipmode" id="dhcp" value="dhcp"> DHCP (automatyczne)</label>
@@ -79,11 +76,11 @@
     <div class="section-title">Konfiguracja alertów WhatsApp</div>
     
     <div class="form-group">
-      <label for="highLimit">Górny limit temperatury (°C)</label>
+      <label for="highLimit">Górny limit temperatury (<span id="highLabel">°C</span>)</label>
       <input type="number" id="highLimit" step="0.1" placeholder="np. 30.0">
     </div>
     <div class="form-group">
-      <label for="lowLimit">Dolny limit temperatury (°C)</label>
+      <label for="lowLimit">Dolny limit temperatury (<span id="lowLabel">°C</span>)</label>
       <input type="number" id="lowLimit" step="0.1" placeholder="np. 10.0">
     </div>
     <div class="form-group">
@@ -124,6 +121,9 @@ document.addEventListener('DOMContentLoaded', function() {
   
 	const COOLDOWN_SECONDS = 30;
 	const STORAGE_KEY = 'lastTestAlertTime';
+	
+	let alertConfigCache = { high: 30.0, low: 10.0, highF: 86.0, lowF: 50.0 };
+	let useFahrenheit = localStorage.getItem('tempUnit') === 'F';
 
 	function cooldown(action) {
 		const testCheckbox = document.getElementById('testEnabled');
@@ -190,9 +190,8 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   });
 
-  // Walidacja
   function isValidIP(ip) {
-    const pattern = /^(\d{1,3}\.){3}\d{1,3}$/; // Format to xxx.xxx.xxx.xxx
+    const pattern = /^(\d{1,3}\.){3}\d{1,3}$/;
     if (!pattern.test(ip)) return false;
     const parts = ip.split('.');
     return parts.every(part => {
@@ -219,9 +218,14 @@ document.addEventListener('DOMContentLoaded', function() {
           return false;
         }
       }
+			if (data.ip === data.gateway) {
+        showStatus('status', 'Adres IP nie może być taki sam jak Brama.', 'error');
+        return false;
+      }
     }
     return true;
   }
+	
 	function checkServerOnline(retries, delay) {
 		return new Promise((resolve, reject) => {
 			let attempts = 0;
@@ -278,71 +282,90 @@ document.addEventListener('DOMContentLoaded', function() {
 
 			if (response.ok) {
 				const data = await response.json();
-				
 				showStatus('status', 'Konfiguracja zapisana. Oczekiwanie na restart sieci...', 'info');
 				
 				try {
 					await checkServerOnline(30, 1000);
 					showStatus('status', 'Urządzenie jest ponownie dostępne! Odświeżanie strony...', 'success');
-					
-					setTimeout(() => {
-						window.location.reload();
-					}, 2000);
+					setTimeout(() => { window.location.reload(); }, 2000);
 				} catch (timeoutError) {
-					showStatus('status', 'Urządzenie nie odpowiada po zmianie konfiguracji.<br>' +
-						'Sprawdź nowy adres IP i spróbuj ponownie połączyć się ręcznie.', 'warning');
+					showStatus('status', 'Urządzenie nie odpowiada po zmianie konfiguracji.<br>Sprawdź nowy adres IP i spróbuj ponownie połączyć się ręcznie.', 'warning');
 					this.disabled = false;
 					this.textContent = 'Zapisz konfigurację sieci';
 				}
 			} else {
 				const data = await response.json();
 				let errorMsg = data.message || data.error || 'Nieznany błąd';
-				if (data.suggestion) {
-					errorMsg += `<br>${data.suggestion}`;
-				}
 				showStatus('status', `${errorMsg}`, 'error');
 				this.disabled = false;
 				this.textContent = 'Zapisz konfigurację sieci';
 			}
 		} catch (err) {
 			if (err.message.includes('Failed to fetch') || err.message.includes('Connection reset')) {
-				showStatus('status', 'Połączenie przerwane podczas zmiany konfiguracji.<br>' +
-					'Oczekiwanie na ponowne połączenie z urządzeniem...', 'info');
+				showStatus('status', 'Połączenie przerwane podczas zmiany konfiguracji.<br>Oczekiwanie na ponowne połączenie z urządzeniem...', 'info');
 				
 				try {
 					await checkServerOnline(30, 1000);
 					showStatus('status', 'Urządzenie jest ponownie dostępne... Odświeżanie strony...', 'success');
-					
-					setTimeout(() => {
-						window.location.reload();
-					}, 2000);
+					setTimeout(() => { window.location.reload(); }, 2000);
 				} catch (timeoutError) {
-					showStatus('status', 'Urządzenie nie odpowiada po zmianie konfiguracji.<br>' +
-						'Sprawdź nowy adres IP i spróbuj ponownie połączyć się ręcznie.<br>' +
-						'Jeśli używasz statycznego IP, upewnij się, że adres jest poprawny.', 'warning');
+					showStatus('status', 'Urządzenie nie odpowiada po zmianie konfiguracji.<br>Sprawdź nowy adres IP i spróbuj ponownie połączyć się ręcznie.', 'warning');
 					this.disabled = false;
 					this.textContent = 'Zapisz konfigurację sieci';
 				}
 			} else {
 				showStatus('status', `Błąd: ${err.message || 'Nieznany błąd'}`, 'error');
-				console.error(err);
 				this.disabled = false;
 				this.textContent = 'Zapisz konfigurację sieci';
 			}
 		}
 	});
 	
+	function updateInputFieldsView() {
+		const highInput = document.getElementById('highLimit');
+		const lowInput = document.getElementById('lowLimit');
+		
+		document.getElementById('highLabel').textContent = useFahrenheit ? '°F' : '°C';
+		document.getElementById('lowLabel').textContent = useFahrenheit ? '°F' : '°C';
+
+		if (useFahrenheit) {
+			highInput.value = !isNaN(alertConfigCache.highF) ? alertConfigCache.highF : '';
+			lowInput.value = !isNaN(alertConfigCache.lowF) ? alertConfigCache.lowF : '';
+			highInput.placeholder = "np. 86.0";
+			lowInput.placeholder = "np. 50.0";
+		} else {
+			highInput.value = !isNaN(alertConfigCache.high) ? alertConfigCache.high : '';
+			lowInput.value = !isNaN(alertConfigCache.low) ? alertConfigCache.low : '';
+			highInput.placeholder = "np. 30.0";
+			lowInput.placeholder = "np. 10.0";
+		}
+	}
+
+	document.getElementById('highLimit').addEventListener('input', function() {
+		if (useFahrenheit) alertConfigCache.highF = parseFloat(this.value);
+		else alertConfigCache.high = parseFloat(this.value);
+	});
+
+	document.getElementById('lowLimit').addEventListener('input', function() {
+		if (useFahrenheit) alertConfigCache.lowF = parseFloat(this.value);
+		else alertConfigCache.low = parseFloat(this.value);
+	});
+	
   function loadAlertConfig() {
     fetch('/api/alertconfig')
       .then(res => res.json())
       .then(data => {
-        document.getElementById('highLimit').value = data.high;
-        document.getElementById('lowLimit').value = data.low;
+        alertConfigCache.high = data.high;
+        alertConfigCache.low = data.low;
+        alertConfigCache.highF = data.highF || (data.high * 1.8 + 32).toFixed(1);
+        alertConfigCache.lowF = data.lowF || (data.low * 1.8 + 32).toFixed(1);
+		
         document.getElementById('recipientPhone').value = data.phone || '';
         document.getElementById('apiKey').value = data.apikey || '';
         document.getElementById('alertsEnabled').checked = data.alertsEnabled || false;
         document.getElementById('testEnabled').checked = data.testEnabled || false;
 				
+				updateInputFieldsView();
 				cooldown('update');
       })
       .catch(err => {
@@ -352,18 +375,25 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 
   document.getElementById('save-alerts-btn').addEventListener('click', async function() {
-    const highLimit = parseFloat(document.getElementById('highLimit').value);
-    const lowLimit = parseFloat(document.getElementById('lowLimit').value);
     const phone = document.getElementById('recipientPhone').value.trim();
     const apikey = document.getElementById('apiKey').value.trim();
     const alertsEnabled = document.getElementById('alertsEnabled').checked;
     const testEnabled = document.getElementById('testEnabled').checked;
 
-    if (isNaN(highLimit) || isNaN(lowLimit)) {
+    if (isNaN(alertConfigCache.high) || isNaN(alertConfigCache.low) || isNaN(alertConfigCache.highF) || isNaN(alertConfigCache.lowF)) {
       showStatus('alertStatus', 'Proszę podać prawidłowe wartości temperatur', 'error');
       return;
     }
-    if (highLimit <= lowLimit) {
+    
+    if (useFahrenheit) {
+			alertConfigCache.high = parseFloat(((alertConfigCache.highF - 32) / 1.8).toFixed(1));
+			alertConfigCache.low = parseFloat(((alertConfigCache.lowF - 32) / 1.8).toFixed(1));
+    } else {
+			alertConfigCache.highF = parseFloat((alertConfigCache.high * 1.8 + 32).toFixed(1));
+			alertConfigCache.lowF = parseFloat((alertConfigCache.low * 1.8 + 32).toFixed(1));
+    }
+
+    if (alertConfigCache.high <= alertConfigCache.low) {
       showStatus('alertStatus', 'Górny limit musi być większy od dolnego', 'error');
       return;
     }
@@ -373,12 +403,15 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     const alertConfig = {
-      high: highLimit,
-      low: lowLimit,
+      high: alertConfigCache.high,
+      low: alertConfigCache.low,
+      highF: alertConfigCache.highF,
+      lowF: alertConfigCache.lowF,
       phone: phone,
       apikey: apikey,
       alertsEnabled: alertsEnabled,
-			testEnabled: testEnabled
+			testEnabled: testEnabled,
+			useFahrenheit: useFahrenheit
     };
 
     showStatus('alertStatus', 'Zapisywanie ustawień alertów...', 'info');
@@ -394,32 +427,24 @@ document.addEventListener('DOMContentLoaded', function() {
 
       if (response.ok) {
         showStatus('alertStatus', 'Ustawienia alertów zapisane pomyślnie', 'success');
-        
 				if (alertsEnabled && testEnabled) {
 					if (cooldown('check') > 0) {
 						document.getElementById('testEnabled').checked = false;
 					} else {
 						showStatus('alertStatus', 'Wysyłanie testowego alertu...', 'info');
 						
-						const testResponse = await fetch('/api/testalert', { 
-							method: 'POST' 
-						});
-						
+						const testResponse = await fetch('/api/testalert', { method: 'POST' });
 						const testData = await testResponse.json();
 						
 						if (testResponse.ok) {
 							showStatus('alertStatus', 'Ustawienia zapisane. Testowy alert wysłany pomyślnie!', 'success');
-							
 							cooldown('set');
 							
 							const testCheckbox = document.getElementById('testEnabled');
 							testCheckbox.checked = false;
 							testCheckbox.disabled = true;
 														
-							setTimeout(() => {
-								cooldown('update');
-							}, COOLDOWN_SECONDS * 1000);
-							
+							setTimeout(() => { cooldown('update'); }, COOLDOWN_SECONDS * 1000);
 						} else {
 							showStatus('alertStatus', `Ustawienia zapisane, ale testowy alert nie został wysłany: ${testData.error || 'Unknown error'}`, 'warning');
 						}
@@ -438,7 +463,6 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   });
 
-
   function showStatus(id, msg, type) {
     const el = document.getElementById(id);
     el.innerHTML = msg;
@@ -449,32 +473,23 @@ document.addEventListener('DOMContentLoaded', function() {
   loadNetworkConfig();
   loadAlertConfig();
 	
-	setInterval(() => {
-		cooldown('update');
-	}, 1000);
+	setInterval(() => { cooldown('update'); }, 1000);
 	
 	const toggleUnit = document.getElementById('toggleUnit');
 	const unitSpan = toggleUnit.querySelector('span');
-
-	const savedUnit = localStorage.getItem('tempUnit');
-	unitSpan.textContent = savedUnit === 'F' ? '°F' : '°C';
+	unitSpan.textContent = useFahrenheit ? '°F' : '°C';
 
 	toggleUnit.addEventListener('click', function() {
-		const currentUnit = unitSpan.textContent;
-		const newUnit = currentUnit === '°C' ? 'F' : 'C';
-		
-		localStorage.setItem('tempUnit', newUnit);
-		unitSpan.textContent = newUnit === 'F' ? '°F' : '°C';
-		
-    fadeText(document.getElementById("toggleUnit").querySelector('span'), currentUnit);
-		
+		useFahrenheit = !useFahrenheit;
+		localStorage.setItem('tempUnit', useFahrenheit ? 'F' : 'C');
+		const newUnit = useFahrenheit ? '°F' : '°C';
+		fadeText(document.getElementById("toggleUnit").querySelector('span'), newUnit);
+		updateInputFieldsView();
 	});
 	
 	function fadeText(element, newText) {
     if (!element) return;
-
     const targetElement = element.querySelector('span') || element;
-
     targetElement.classList.remove('fade-in');
     targetElement.classList.add('fade-out');
 
@@ -482,15 +497,10 @@ document.addEventListener('DOMContentLoaded', function() {
         targetElement.textContent = newText;
         targetElement.classList.remove('fade-out');
         targetElement.classList.add('fade-in');
-
-        setTimeout(() => {
-            targetElement.classList.remove('fade-in');
-        }, 300); 
+        setTimeout(() => { targetElement.classList.remove('fade-in'); }, 300); 
     }, 300); 
 	}
-
 });
 </script>
-
 </body>
 </html>

@@ -41,6 +41,10 @@ String whatsappAPIKey = "";
 String recipientPhone = "";
 float highTempLimit = 30.0;
 float lowTempLimit = 10.0;
+
+float highTempLimitF = 86.0;
+float lowTempLimitF = 50.0;
+
 bool alertsEnabled = false;
 
 bool testEnabled = false;
@@ -48,18 +52,54 @@ bool testEnabled = false;
 bool alertSentHigh = false;
 bool alertSentLow = false;
 
+bool alertUseFahrenheit = false;
+
 // Temperatura inicjalizacja 
 
 const int Temp = 32;
 OneWire oneWire(Temp);
 DallasTemperature sensors(&oneWire);
 
+const int RESET_BUTTON_PIN = 34;
+
+void checkResetButton() {
+  if (digitalRead(RESET_BUTTON_PIN) == LOW) {
+    Serial.println("[RESET] Button detected! Hold for 5 seconds to reset network settings...");
+    
+    unsigned long pressStartTime = millis();
+    bool fullyPressed = true;
+
+    // Keep checking for 5 seconds
+    while (millis() - pressStartTime < 5000) {
+      delay(50);
+      if (digitalRead(RESET_BUTTON_PIN) == HIGH) {
+        Serial.println("[RESET] Button released too early. Reset aborted.");
+        fullyPressed = false;
+        break;
+      }
+      // Optional: Blink an LED here if you have one to give user feedback
+    }
+
+    if (fullyPressed) {
+      Serial.println("\n[RESET] Wiping network config...");
+      
+      useDHCP = true;
+      saveIPConfig();
+      
+      Serial.println("[RESET] Done. Rebooting device...");
+      delay(1000);
+      ESP.restart();
+    }
+  }
+}
 
 //// PROGRAM
 
 void setup() {
   Serial.begin(115200);
   delay(200);
+
+  pinMode(RESET_BUTTON_PIN, INPUT);
 
   Serial.println("[BOOT] Starting...");
 
@@ -89,17 +129,26 @@ void setup() {
   
   applyNetworkConfig();
 
-  for (int i = 0; i < 100 && !eth_connected; i++) {
+  Serial.print("[ETH] Waiting for IP");
+  unsigned long startAttempt = millis();
+  while (!eth_connected && millis() - startAttempt < 15000) {
     delay(100);
     Serial.print(".");
   }
   Serial.println();
   
- if (eth_connected) {
-
-  syncTime();
+  if (!eth_connected) {
+    if (!useDHCP) {
+      Serial.println("\n[ETH] ⚠️ Static IP failed to connect! Reverting to DHCP...");
+      useDHCP = true;
+      saveIPConfig();
+      delay(500);
+      ESP.restart();
+    } else {
+      Serial.println("[TIME] ⚠️ No network on DHCP, time will be incorrect!");
+    }
   } else {
-  Serial.println("[TIME] ⚠️ No network, time will be incorrect!");
+    syncTime();
   }
 
   if (MDNS.begin("esp32-poe")) {
@@ -191,10 +240,13 @@ void setup() {
     String json = "{";
     json += "\"high\":" + String(highTempLimit, 1) + ",";
     json += "\"low\":" + String(lowTempLimit, 1) + ",";
+    json += "\"highF\":" + String(highTempLimitF, 1) + ",";
+    json += "\"lowF\":" + String(lowTempLimitF, 1) + ",";
     json += "\"phone\":\"" + recipientPhone + "\",";
     json += "\"apikey\":\"" + whatsappAPIKey + "\",";
     json += "\"alertsEnabled\":" + String(alertsEnabled ? "true" : "false") + ",";
-    json += "\"testEnabled\":" + String(testEnabled ? "true" : "false");
+    json += "\"testEnabled\":" + String(testEnabled ? "true" : "false") + ",";
+    json += "\"useFahrenheit\":" + String(alertUseFahrenheit ? "true" : "false"); // <-- Added
     json += "}";
     server.send(200, "application/json", json);
   });
@@ -211,10 +263,13 @@ void setup() {
 
     highTempLimit = doc["high"];
     lowTempLimit = doc["low"];
+    highTempLimitF = doc["highF"];
+    lowTempLimitF = doc["lowF"];
     recipientPhone = doc["phone"].as<String>();
     whatsappAPIKey = doc["apikey"].as<String>();
     alertsEnabled = doc["alertsEnabled"];
     testEnabled = doc["testEnabled"];
+    alertUseFahrenheit = doc["useFahrenheit"];
     
     saveAlertConfig();
     server.send(200, "application/json", "{\"status\":\"ok\"}");
@@ -259,7 +314,11 @@ unsigned long lastDbInsert = 0;
 const unsigned long tempInterval = 5000; //5s
 const unsigned long dbInsertInterval = 300000; // 5min
 
+
+
 void loop() {
+  checkResetButton();
+
   server.handleClient();
   webSocket.loop();
   
@@ -273,8 +332,17 @@ void loop() {
     String timestamp = getTimestamp();
     logTemperature(tempValc, tempValf, timestamp);
     Serial.println("[DB] Logged temperature: " + String(tempValc) + " / " + String(tempValf) + " at " + timestamp);
-
-    checkAndSendAlerts(tempValc, tempValf, timestamp);
+    if (alertsEnabled) {
+        float alertTemp = 0.0;
+        
+        if (alertUseFahrenheit) {
+            alertTemp = tempValf;
+        } else {
+            alertTemp = tempValc;
+        }
+        
+        checkAndSendAlerts(alertUseFahrenheit, alertTemp, timestamp);
+    }
 
     sendChartData();
     sendStatsOverWebSocket();
