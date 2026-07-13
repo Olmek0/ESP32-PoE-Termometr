@@ -64,7 +64,7 @@ void loadIPConfig() {
 
 void checkIPChange() {
   IPAddress currentIP = ETH.localIP();
-  if (currentIP != lastIP) {
+  if (currentIP != lastIP && currentIP != IPAddress(0,0,0,0)) {
     Serial.print("[ETH] IP changed to: ");
     Serial.println(currentIP);
     lastIP = currentIP;

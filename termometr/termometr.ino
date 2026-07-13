@@ -168,15 +168,18 @@ void setup() {
   server.on("/set.html", HTTP_GET, []() { handleRoot("/set.html", "text/html"); });
 
   server.on("/api/ipconfig", HTTP_GET, []() {
-    String json = "{";
-    json += "\"dhcp\":" + String(useDHCP ? "true" : "false") + ",";
-    json += "\"ip\":\"" + (useDHCP ? ETH.localIP().toString() : staticIP.toString()) + "\",";
-    json += "\"gateway\":\"" + (useDHCP ? ETH.gatewayIP().toString() : gateway.toString()) + "\",";
-    json += "\"subnet\":\"" + (useDHCP ? ETH.subnetMask().toString() : subnet.toString()) + "\",";
-    json += "\"dns1\":\"" + (useDHCP ? ETH.dnsIP(0).toString() : dns1.toString()) + "\",";
-    json += "\"dns2\":\"" + (useDHCP ? ETH.dnsIP(1).toString() : dns2.toString()) + "\"";
-    json += "}";
-    server.send(200, "application/json", json);
+    DynamicJsonDocument doc(512); 
+
+    doc["dhcp"] = useDHCP;
+    doc["ip"] = useDHCP ? ETH.localIP().toString() : staticIP.toString();
+    doc["gateway"] = useDHCP ? ETH.gatewayIP().toString() : gateway.toString();
+    doc["subnet"] = useDHCP ? ETH.subnetMask().toString() : subnet.toString();
+    doc["dns1"] = useDHCP ? ETH.dnsIP(0).toString() : dns1.toString();
+    doc["dns2"] = useDHCP ? ETH.dnsIP(1).toString() : dns2.toString();
+
+    String output;
+    serializeJson(doc, output);
+    server.send(200, "application/json", output);
   });
 
   server.on("/api/ipconfig", HTTP_POST, []() {
@@ -237,18 +240,22 @@ void setup() {
   });
 
   server.on("/api/alertconfig", HTTP_GET, []() {
-    String json = "{";
-    json += "\"high\":" + String(highTempLimit, 1) + ",";
-    json += "\"low\":" + String(lowTempLimit, 1) + ",";
-    json += "\"highF\":" + String(highTempLimitF, 1) + ",";
-    json += "\"lowF\":" + String(lowTempLimitF, 1) + ",";
-    json += "\"phone\":\"" + recipientPhone + "\",";
-    json += "\"apikey\":\"" + whatsappAPIKey + "\",";
-    json += "\"alertsEnabled\":" + String(alertsEnabled ? "true" : "false") + ",";
-    json += "\"testEnabled\":" + String(testEnabled ? "true" : "false") + ",";
-    json += "\"useFahrenheit\":" + String(alertUseFahrenheit ? "true" : "false"); // <-- Added
-    json += "}";
-    server.send(200, "application/json", json);
+    DynamicJsonDocument doc(512); 
+
+    doc["high"] = highTempLimit;
+    doc["low"] = lowTempLimit;
+    doc["highF"] = highTempLimitF;
+    doc["lowF"] = lowTempLimitF;
+    doc["phone"] = recipientPhone;
+    doc["apikey"] = whatsappAPIKey;
+    doc["alertsEnabled"] = alertsEnabled;
+    doc["testEnabled"] = testEnabled;
+    doc["useFahrenheit"] = alertUseFahrenheit;
+
+    String jsonResponse;
+    serializeJson(doc, jsonResponse);
+    server.send(200, "application/json", jsonResponse);
+
   });
 
   server.on("/api/alertconfig", HTTP_POST, []() {
@@ -280,11 +287,26 @@ void setup() {
       server.send(400, "application/json", "{\"error\":\"Alerts not configured\"}");
       return;
     }
-    
+
+    float testTempLow = 0.0;
+    float testTempHigh = 0.0;
+
+    String testUnit;
+
+    if (alertUseFahrenheit) {
+          testTempHigh = highTempLimitF;
+          testTempLow = lowTempLimitF;
+          testUnit = "°F";
+    } else {
+          testTempHigh = highTempLimit;
+          testTempLow = lowTempLimit;
+          testUnit = "°C";
+    }
+
     String message = "Alert informacyjny\n"
                    "Konfiguracja alertów powiodła się!\n"
-                   "Limit górny: " + String(highTempLimit, 1) + "°C\n"
-                   "Limit dolny: " + String(lowTempLimit, 1) + "°C";
+                   "Limit górny: " + String(testTempHigh, 1) + testUnit + "  qqq2\n"
+                   "Limit dolny: " + String(testTempLow, 1) + testUnit;
     
     sendWhatsAppAlert(message);
     server.send(200, "application/json", "{\"status\":\"Test alert sent\"}");
@@ -314,7 +336,7 @@ unsigned long lastDbInsert = 0;
 const unsigned long tempInterval = 5000; //5s
 const unsigned long dbInsertInterval = 300000; // 5min
 
-
+unsigned long lastDisconnectTime = 0;
 
 void loop() {
   checkResetButton();
@@ -323,6 +345,21 @@ void loop() {
   webSocket.loop();
   
   checkIPChange();
+
+  if (!eth_connected) {
+    if (lastDisconnectTime == 0) {
+      lastDisconnectTime = millis(); // Start tracking the moment we lose connection
+    }
+    
+    // If disconnected for more than 30 seconds, cleanly restart the board
+    if (millis() - lastDisconnectTime > 30000) {
+      Serial.println("[WATCHDOG] Ethernet connection stuck. Rebooting to recover PHY chip...");
+      delay(500);
+      ESP.restart();
+    }
+  } else {
+    lastDisconnectTime = 0; // Reset timer once connection is healthy
+  }
   
   if (millis() - lastDbInsert >= dbInsertInterval) {
     lastDbInsert = millis();

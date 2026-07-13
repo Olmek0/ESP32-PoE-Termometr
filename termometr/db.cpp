@@ -40,16 +40,27 @@ void logTemperature(float tempC, float tempF, const String& timestamp) {
     return;
   }
 
-  String query = "INSERT INTO logs2 (timestamp, temperature_c, temperature_f) VALUES ('" + timestamp + "', " + String(tempC, 2) + "," + String(tempF, 2) + ");";
+  const char* query = "INSERT INTO logs2 (timestamp, temperature_c, temperature_f) VALUES (?, ?, ?);";
 
-  int rc = sqlite3_exec(db, query.c_str(), NULL, 0, &zErrMsg);
+  sqlite3_stmt* stmt;
+  int rc = sqlite3_prepare_v2(db, query, -1, &stmt, NULL);
   if (rc != SQLITE_OK) {
-    Serial.printf("[DB ERROR] Insert failed: %s\n", zErrMsg);
-    sqlite3_free(zErrMsg);
-  } else {
-    Serial.println("[DB] Logged: " + timestamp + ", " + String(tempC));
+    Serial.printf("[DB ERROR] Prepare failed: %s\n", sqlite3_errmsg(db));
+    sqlite3_close(db); // Always close the DB if prepare fails!
+    return;
   }
 
+  sqlite3_bind_text(stmt, 1, timestamp.c_str(), -1, SQLITE_TRANSIENT);
+  sqlite3_bind_double(stmt, 2, static_cast<double>(tempC));
+  sqlite3_bind_double(stmt, 3, static_cast<double>(tempF));
+
+  rc = sqlite3_step(stmt);
+  if (rc != SQLITE_DONE) { // Dla INSERT/UPDATE musi być DONE a nie ROW
+    Serial.printf("[DB ERROR] Insert step failed: %s\n", sqlite3_errmsg(db));
+  } else {
+    Serial.println("[DB] Logged safely: " + timestamp + ", " + String(tempC) + "°C");
+  }
+  sqlite3_finalize(stmt);
   sqlite3_close(db);
 }
 
@@ -109,23 +120,31 @@ void sendHistoryJson(const String& start, const String& end) {
     return;
   }
 
-  String query = "SELECT timestamp, temperature_c, temperature_f FROM logs2 "
-                 "WHERE DATE(timestamp) >= DATE('" + start + "') AND DATE(timestamp) <= DATE('" + end + "') "
+  const char* query = "SELECT timestamp, temperature_c, temperature_f FROM logs2 "
+                 "WHERE DATE(timestamp) >= DATE(?) AND DATE(timestamp) <= DATE(?) "
                  "ORDER BY timestamp ASC;";
 
   sqlite3_stmt* stmt;
-  int rc = sqlite3_prepare_v2(db, query.c_str(), -1, &stmt, NULL);
+  int rc = sqlite3_prepare_v2(db, query, -1, &stmt, NULL);
   if (rc != SQLITE_OK) {
+    Serial.printf("[DB ERROR] Prepare failed: %s\n", sqlite3_errmsg(db));
     sqlite3_close(db);
     server.send(500, "application/json", "{\"error\":\"Failed to execute query\"}");
     return;
   }
-  String json = "{ \"total\":0, \"data\":[";
+  sqlite3_bind_text(stmt, 1, start.c_str(), -1, SQLITE_TRANSIENT);
+  sqlite3_bind_text(stmt, 2, end.c_str(), -1, SQLITE_TRANSIENT);
+
+  server.setContentLength(CONTENT_LENGTH_UNKNOWN);
+  server.send(200, "application/json", "");
+
+  server.sendContent("{ \"total\":0, \"data\":[");
+
   bool first = true;
   int total = 0;
 
   while (sqlite3_step(stmt) == SQLITE_ROW) {
-    if (!first) json += ",";
+    if (!first) server.sendContent(",");
     first = false;
     total++;
 
@@ -133,15 +152,15 @@ void sendHistoryJson(const String& start, const String& end) {
     float c = sqlite3_column_double(stmt, 1);
     float f = sqlite3_column_double(stmt, 2);
 
-    json += "{\"timestamp\":\"" + String(ts) + "\",\"c\":" + String(c, 2) + ",\"f\":" + String(f, 2) + "}";
+    String row = "{\"timestamp\":\"" + String(ts) + "\",\"c\":" + String(c, 2) + ",\"f\":" + String(f, 2) + "}";
+    server.sendContent(row);
   }
 
-  json += "], \"total\":" + String(total) + " }";
+  server.sendContent("], \"total\":" + String(total) + " }");
 
   sqlite3_finalize(stmt);
   sqlite3_close(db);
 
-  server.send(200, "application/json", json);
 }
 
 // Wysyłanie informacji o wykresie
