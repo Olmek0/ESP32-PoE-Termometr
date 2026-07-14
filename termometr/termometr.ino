@@ -54,6 +54,8 @@ bool alertSentLow = false;
 
 bool alertUseFahrenheit = false;
 
+String timezone = "CET-1CEST,M3.5.0/2,M10.5.0/3";
+
 // Temperatura inicjalizacja 
 
 const int Temp = 32;
@@ -69,7 +71,6 @@ void checkResetButton() {
     unsigned long pressStartTime = millis();
     bool fullyPressed = true;
 
-    // Keep checking for 5 seconds
     while (millis() - pressStartTime < 5000) {
       delay(50);
       if (digitalRead(RESET_BUTTON_PIN) == HIGH) {
@@ -77,7 +78,6 @@ void checkResetButton() {
         fullyPressed = false;
         break;
       }
-      // Optional: Blink an LED here if you have one to give user feedback
     }
 
     if (fullyPressed) {
@@ -91,6 +91,63 @@ void checkResetButton() {
       ESP.restart();
     }
   }
+}
+
+void saveTimezoneConfig() {
+  File file = LittleFS.open("/timezone.cfg", "w");
+  if (!file) {
+    Serial.println("[ERROR] Failed to open timezone.cfg for writing");
+    return;
+  }
+  file.println(timezone);
+  file.close();
+  Serial.println("[CONFIG] Timezone saved: " + timezone);
+}
+
+void loadTimezoneConfig() {
+  File file = LittleFS.open("/timezone.cfg", "r");
+  if (!file) {
+    Serial.println("[CONFIG] No timezone config found, using default");
+    return;
+  }
+  String tz = file.readStringUntil('\n');
+  tz.trim();
+  if (tz.length() > 0) {
+    timezone = tz;
+    Serial.println("[CONFIG] Loaded timezone: " + timezone);
+  }
+  file.close();
+}
+
+void applyTimezone() {
+  if (eth_connected) {
+    Serial.println("[TIME] Applying timezone: " + timezone);
+    configTzTime(timezone.c_str(), "pool.ntp.org", "time.google.com", "time.windows.com");
+  }
+}
+
+String getAvailableTimezones() {
+  DynamicJsonDocument doc(2048);
+  JsonArray arr = doc.to<JsonArray>();
+  
+  arr.add("CET-1CEST,M3.5.0/2,M10.5.0/3"); // Central European Time
+  arr.add("GMT0BST,M3.5.0/1,M10.5.0/2");   // UK/London
+  arr.add("WET0WEST,M3.5.0/1,M10.5.0/2");  // Western European Time
+  arr.add("EET-2EEST,M3.5.0/3,M10.5.0/4"); // Eastern European Time
+  arr.add("CST6CDT");                       // US Central
+  arr.add("EST5EDT");                       // US Eastern
+  arr.add("MST7MDT");                       // US Mountain
+  arr.add("PST8PDT");                       // US Pacific
+  arr.add("AST4ADT");                       // Atlantic
+  arr.add("NZST-12NZDT,M9.5.0/2,M4.1.0/3"); // New Zealand
+  arr.add("JST-9");                         // Japan
+  arr.add("AEST-10AEDT,M10.1.0/2,M4.1.0/3"); // Australia East
+  arr.add("CST-8");                         // China
+  arr.add("IST-5:30");                      // India
+  
+  String output;
+  serializeJson(doc, output);
+  return output;
 }
 
 //// PROGRAM
@@ -129,6 +186,8 @@ void setup() {
   
   applyNetworkConfig();
 
+  loadTimezoneConfig(); 
+
   Serial.print("[ETH] Waiting for IP");
   unsigned long startAttempt = millis();
   while (!eth_connected && millis() - startAttempt < 15000) {
@@ -148,7 +207,7 @@ void setup() {
       Serial.println("[TIME] ⚠️ No network on DHCP, time will be incorrect!");
     }
   } else {
-    syncTime();
+    applyTimezone();
   }
 
   if (MDNS.begin("esp32-poe")) {
@@ -311,6 +370,46 @@ void setup() {
     sendWhatsAppAlert(message);
     server.send(200, "application/json", "{\"status\":\"Test alert sent\"}");
   });
+
+  server.on("/api/timezone", HTTP_GET, []() {
+    DynamicJsonDocument doc(256);
+    doc["timezone"] = timezone;
+    doc["available_timezones"] = getAvailableTimezones();
+    
+    String output;
+    serializeJson(doc, output);
+    server.send(200, "application/json", output);
+  });
+
+  server.on("/api/timezone", HTTP_POST, []() {
+    if (!server.hasArg("plain")) {
+      server.send(400, "application/json", "{\"error\":\"Bad request\"}");
+      return;
+    }
+    
+    String body = server.arg("plain");
+    DynamicJsonDocument doc(256);
+    DeserializationError error = deserializeJson(doc, body);
+    
+    if (error) {
+      server.send(400, "application/json", "{\"error\":\"Invalid JSON\"}");
+      return;
+    }
+    
+    String newTimezone = doc["timezone"].as<String>();
+    
+    if (newTimezone.length() < 3) {
+      server.send(400, "application/json", "{\"error\":\"Invalid timezone format\"}");
+      return;
+    }
+    
+    timezone = newTimezone;
+    saveTimezoneConfig();
+    
+    applyTimezone();
+    
+    server.send(200, "application/json", "{\"status\":\"ok\",\"message\":\"Timezone updated\"}");
+  });
   // websockety
 
   webSocket.begin();
@@ -348,17 +447,16 @@ void loop() {
 
   if (!eth_connected) {
     if (lastDisconnectTime == 0) {
-      lastDisconnectTime = millis(); // Start tracking the moment we lose connection
+      lastDisconnectTime = millis();
     }
     
-    // If disconnected for more than 30 seconds, cleanly restart the board
     if (millis() - lastDisconnectTime > 30000) {
       Serial.println("[WATCHDOG] Ethernet connection stuck. Rebooting to recover PHY chip...");
       delay(500);
       ESP.restart();
     }
   } else {
-    lastDisconnectTime = 0; // Reset timer once connection is healthy
+    lastDisconnectTime = 0;
   }
   
   if (millis() - lastDbInsert >= dbInsertInterval) {

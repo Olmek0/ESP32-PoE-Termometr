@@ -24,9 +24,9 @@ TempPair GetTemperature(){
 }
 
 void syncTime() {
-  Serial.println("[TIME] Syncing with NTP...");
+  Serial.println("[TIME] Syncing with NTP using timezone: " + timezone);
   
-  configTzTime("CET-1CEST,M3.5.0/2,M10.5.0/3", "pool.ntp.org", "time.google.com", "time.windows.com");
+  configTzTime(timezone.c_str(), "pool.ntp.org", "time.google.com", "time.windows.com");
   
   int attempts = 0;
   while (attempts < 20) { 

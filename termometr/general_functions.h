@@ -9,6 +9,7 @@
 extern const int Temp;
 extern OneWire oneWire;
 extern DallasTemperature sensors;
+extern String timezone;
 
 struct TempPair {
   String c;

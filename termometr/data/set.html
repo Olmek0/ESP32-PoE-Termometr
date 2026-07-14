@@ -109,8 +109,32 @@
     </div>
     <div id="alertStatus"></div>
 
+	
+	  <div class="section-title">Ustawienia czasu</div>
+    <div class="form-group">
+      <label for="timezoneSelect">Strefa czasowa</label>
+      <select id="timezoneSelect" class="timezone-select">
+        <option value="CET-1CEST,M3.5.0/2,M10.5.0/3">🇪🇺 Europa Środkowa (CET)</option>
+        <option value="GMT0BST,M3.5.0/1,M10.5.0/2">🇬🇧 Londyn (GMT/BST)</option>
+        <option value="WET0WEST,M3.5.0/1,M10.5.0/2">🇵🇹 Portugalia (WET)</option>
+        <option value="EET-2EEST,M3.5.0/3,M10.5.0/4">🇬🇷 Grecja (EET)</option>
+        <option value="EST5EDT">🇺🇸 Nowy Jork (EST/EDT)</option>
+        <option value="CST6CDT">🇺🇸 Chicago (CST/CDT)</option>
+        <option value="MST7MDT">🇺🇸 Denver (MST/MDT)</option>
+        <option value="PST8PDT">🇺🇸 Los Angeles (PST/PDT)</option>
+        <option value="AST4ADT">🇨🇦 Halifax (AST/ADT)</option>
+        <option value="JST-9">🇯🇵 Tokio (JST)</option>
+        <option value="CST-8">🇨🇳 Chiny (CST)</option>
+        <option value="IST-5:30">🇮🇳 Indie (IST)</option>
+        <option value="AEST-10AEDT,M10.1.0/2,M4.1.0/3">🇦🇺 Sydney (AEST/AEDT)</option>
+        <option value="NZST-12NZDT,M9.5.0/2,M4.1.0/3">🇳🇿 Nowa Zelandia (NZST/NZDT)</option>
+      </select>
+    </div>
+    <button id="save-timezone-btn" class="btn">Zapisz strefę czasową</button>
+    <div id="timezoneStatus"></div>
+	
   </div>
-
+	
   <footer>
     <a href="/">← Powrót do strony głównej</a>
   </footer>
@@ -183,6 +207,28 @@ document.addEventListener('DOMContentLoaded', function() {
 				console.error(err);
 			});
 	}
+	
+	 function loadTimezoneConfig() {
+    fetch('/api/timezone')
+      .then(res => res.json())
+      .then(data => {
+        if (data.timezone) {
+          const select = document.getElementById('timezoneSelect');
+          // Try to find the matching option
+          for (let option of select.options) {
+            if (option.value === data.timezone) {
+              option.selected = true;
+              break;
+            }
+          }
+          showStatus('timezoneStatus', 'Aktualna strefa czasowa załadowana', 'info');
+        }
+      })
+      .catch(err => {
+        showStatus('timezoneStatus', 'Nie udało się pobrać konfiguracji strefy czasowej', 'warning');
+        console.error(err);
+      });
+  }
 
   document.querySelectorAll('input[name="ipmode"]').forEach(radio => {
     radio.addEventListener('change', function() {
@@ -462,6 +508,43 @@ document.addEventListener('DOMContentLoaded', function() {
       this.textContent = 'Zapisz ustawienia alertów';
     }
   });
+	
+	 document.getElementById('save-timezone-btn').addEventListener('click', async function() {
+    const select = document.getElementById('timezoneSelect');
+    const selectedTimezone = select.value;
+    
+    if (!selectedTimezone) {
+      showStatus('timezoneStatus', 'Wybierz strefę czasową', 'error');
+      return;
+    }
+
+    showStatus('timezoneStatus', 'Zapisywanie strefy czasowej...', 'info');
+    this.disabled = true;
+    this.textContent = 'Zapisywanie...';
+
+    try {
+      const response = await fetch('/api/timezone', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ timezone: selectedTimezone })
+      });
+
+      if (response.ok) {
+        showStatus('timezoneStatus', 'Strefa czasowa zapisana pomyślnie!', 'success');
+        // Reload after a short delay to apply changes
+        setTimeout(() => { window.location.reload(); }, 1500);
+      } else {
+        const errorData = await response.json();
+        showStatus('timezoneStatus', `Błąd zapisu: ${errorData.error || 'Unknown error'}`, 'error');
+      }
+    } catch (err) {
+      showStatus('timezoneStatus', 'Błąd połączenia z serwerem', 'error');
+      console.error(err);
+    } finally {
+      this.disabled = false;
+      this.textContent = 'Zapisz strefę czasową';
+    }
+  });
 
   function showStatus(id, msg, type) {
     const el = document.getElementById(id);
@@ -472,6 +555,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
   loadNetworkConfig();
   loadAlertConfig();
+	
+  loadTimezoneConfig();
 	
 	setInterval(() => { cooldown('update'); }, 1000);
 	

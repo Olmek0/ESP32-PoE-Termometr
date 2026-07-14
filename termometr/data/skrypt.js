@@ -1,4 +1,3 @@
-
 let xValues = [];
 let yValues = [];
 
@@ -98,6 +97,7 @@ function createCha(title, datax, datay) {
 
 let firstLoad = true;
 function toggleCha(title, datay, datax, clickedElement) {
+    if (!clickedElement) return;
     document.querySelectorAll('.Navbar div').forEach(el => el.classList.remove('active'));
     clickedElement.classList.add('active');
 
@@ -169,9 +169,6 @@ function toggleCha(title, datay, datax, clickedElement) {
         document.getElementById('endDate').value = '';
     }
 }
-setTimeout(() => {
-  chartCanvas.style.opacity = '1';
-}, 50); 
 
 let Bar, Menu;
 
@@ -180,8 +177,8 @@ function handleGlobalInteraction(e) {
     const isEscapeKey = e.type === 'keydown' && e.key === 'Escape';
 
     if (isClickOutside || isEscapeKey) {
-        Menu.classList.remove('show');
-        Bar.classList.remove('active');
+        if (Menu) Menu.classList.remove('show');
+        if (Bar) Bar.classList.remove('active');
     }
 }
 
@@ -195,11 +192,13 @@ window.addEventListener('DOMContentLoaded', () => {
     Bar = document.querySelector('.OptionsBar');
     Menu = document.getElementById('Options');
 
-    Bar.addEventListener('click', function (e) {
-        e.stopPropagation();
-        Menu.classList.toggle('show');
-        Bar.classList.toggle('active');
-    });
+    if (Bar) {
+        Bar.addEventListener('click', function (e) {
+            e.stopPropagation();
+            Menu.classList.toggle('show');
+            Bar.classList.toggle('active');
+        });
+    }
 
     document.addEventListener('click', handleGlobalInteraction);
     document.addEventListener('keydown', handleGlobalInteraction);
@@ -208,27 +207,27 @@ window.addEventListener('DOMContentLoaded', () => {
 			useFahrenheit = !useFahrenheit;
 			localStorage.setItem("tempUnit", useFahrenheit ? "F" : "C");
 			const text = useFahrenheit ? "°F" : "°C";
-			fadeText(document.getElementById("toggleUnit").querySelector('span'), text);
+			fadeText(document.getElementById("toggleUnit"), text);
 			updateDisplayedTemp();
 			updateStatsDisplay();
 			updateTemperatureStats();
 			updateChartForCurrentUnit();
 			updateMonthlyChartDisplay();
-			UpdateChartLegend();
     });
 
     const savedUnit = localStorage.getItem("tempUnit");
     if (savedUnit === "F") {
         useFahrenheit = true;
-        document.querySelector("#toggleUnit span").textContent = "°F";
+        const toggleSpan = document.querySelector("#toggleUnit span");
+        if (toggleSpan) toggleSpan.textContent = "°F";
     } else {
         useFahrenheit = false;
-        document.querySelector("#toggleUnit span").textContent = "°C";
+        const toggleSpan = document.querySelector("#toggleUnit span");
+        if (toggleSpan) toggleSpan.textContent = "°C";
     }
 
     const bottomSection = document.querySelector('.Bottom');
     const TempSta = document.querySelector('.TempStat');
-    const Title = document.querySelector('.Title');
 
     if (bottomSection) {
         setTimeout(() => {
@@ -268,7 +267,6 @@ try {
 				chaData = data;
 				updateChartDisplay();
 				updateMonthlyChartDisplay();
-
 			}
             else if (data.total !== undefined) {
                 statData = data;
@@ -297,31 +295,60 @@ function getUnit() {
     };
 }
 
+let esp32Date = null;
+
+function updateDateFromESP32() {
+    if (esp32Date) {
+        document.getElementById("data").innerHTML = esp32Date;
+        return;
+    }
+
+    if (statData && statData.start) {
+        const startDate = statData.start;
+        if (startDate && startDate !== 'unknown') {
+            const parts = startDate.split(' ');
+            if (parts.length > 0) {
+                const dateParts = parts[0].split('-');
+                if (dateParts.length === 3) {
+                    esp32Date = `${dateParts[2]}.${dateParts[1]}.${dateParts[0]}`;
+                    document.getElementById("data").innerHTML = esp32Date;
+                    return;
+                }
+            }
+        }
+    }
+    
+    const fallbackDate = new Intl.DateTimeFormat("pl-PL", {
+        day: "2-digit", month: "2-digit", year: "numeric"
+    }).format(new Date());
+    document.getElementById("data").innerHTML = fallbackDate;
+}
+
 let chartDataC = [];
 let chartDataF = [];
 
 function updateChartDisplay() {
     if (!chaData || !chaData.data) return;
 
-    const now = new Date();
-    const hours = Array.from({ length: 24 }, (_, i) => {
-        const d = new Date(now.getTime() - (23 - i) * 3600 * 1000);
-        return `${d.getHours().toString().padStart(2, '0')}:00`;
-    });
+		const currentHour = new Date().getHours();
+    const lastHours = [];
+    for (let i = 23; i >= 0; i--) {
+        const h = (currentHour - i + 24) % 24;
+        lastHours.push(`${h.toString().padStart(2, '0')}:00`);
+    }
 
     const valuesMapC = {};
     const valuesMapF = {};
-
     chaData.data.forEach(item => {
-        const date = new Date(item.hour);
-        const hourKey = `${date.getHours().toString().padStart(2, '0')}:00`;
-        valuesMapC[hourKey] = item.avg_c;
-        valuesMapF[hourKey] = item.avg_f;
+        const parts = item.hour.split(' ');
+        const hour = parts.length > 1 ? parts[1] : item.hour;
+        valuesMapC[hour] = item.avg_c;
+        valuesMapF[hour] = item.avg_f;
     });
 
-    xValues = hours;
-    chartDataC = hours.map(h => valuesMapC[h] ?? null);
-    chartDataF = hours.map(h => valuesMapF[h] ?? null);
+    xValues = lastHours;
+    chartDataC = lastHours.map(hour => valuesMapC[hour] !== undefined ? valuesMapC[hour] : null);
+    chartDataF = lastHours.map(hour => valuesMapF[hour] !== undefined ? valuesMapF[hour] : null);
 
     updateChartForCurrentUnit();
 }
@@ -340,24 +367,23 @@ function updateMonthlyChartDisplay() {
     if (!chaData || !chaData.monthly) return;
 
     const today = new Date();
-    const days = Array.from({ length: 30 }, (_, i) => {
-		const d = new Date(today.getTime() - (29 - i) * 24 * 3600 * 1000);
-		return d.toLocaleDateString("pl-PL", { day: "2-digit", month: "2-digit" }); // Gives "DD-MM"
-	});
+    const allDays = Array.from({ length: 30 }, (_, i) => {
+        const d = new Date(today.getTime() - (29 - i) * 24 * 3600 * 1000);
+        return d.toLocaleDateString("pl-PL", { day: "2-digit", month: "2-digit" });
+    });
 
     const valuesMapC = {};
     const valuesMapF = {};
-
     chaData.monthly.forEach(item => {
-        const [year, month, day] = item.day.split('-'); // "YYYY-MM-DD"
-        const key = `${day}.${month}`; // Convert to "DD-MM"
+        const parts = item.day.split('-');
+        const key = `${parts[2]}.${parts[1]}`;
         valuesMapC[key] = item.avg_c;
         valuesMapF[key] = item.avg_f;
     });
 
-    xValues2 = days;
-    chartDataMonthC = days.map(day => valuesMapC[day] ?? null);
-    chartDataMonthF = days.map(day => valuesMapF[day] ?? null);
+    xValues2 = allDays;
+    chartDataMonthC = allDays.map(day => valuesMapC[day] !== undefined ? valuesMapC[day] : null);
+    chartDataMonthF = allDays.map(day => valuesMapF[day] !== undefined ? valuesMapF[day] : null);
 
     updateMonthlyChartForCurrentUnit();
 }
@@ -372,43 +398,38 @@ function updateMonthlyChartForCurrentUnit() {
 	}
 }
 
-let lastTotal = null;
-let lastMax = null;
-let lastMin = null;
-
 function updateStatsDisplay() {
     const { unit, max, min } = getUnit();
 
-    const stto = `Ilość odczytów - ${statData.total}`;
-    const stmx = `Najwyższa temperatura - ${max}${unit}`;
-    const stmi = `Najniższa temperatura - ${min}${unit}`;
-    const stst = `Pierwszy odczyt - ${statData.start}`;
+    const stto = `Ilość odczytów - ${statData.total || 0}`;
+    const stmx = `Najwyższa temperatura - ${max !== undefined ? max : '--'}${unit}`;
+    const stmi = `Najniższa temperatura - ${min !== undefined ? min : '--'}${unit}`;
+    const stst = `Pierwszy odczyt - ${statData.start || '--'}`;
 
-    if (document.getElementById("stat-total").textContent !== stto) {
-        fadeText(document.getElementById("stat-total").querySelector('span'), stto);
-    }
-    if (document.getElementById("stat-max").textContent !== stmx) {
-        fadeText(document.getElementById("stat-max").querySelector('span'), stmx);
-    }
-    if (document.getElementById("stat-min").textContent !== stmi) {
-        fadeText(document.getElementById("stat-min").querySelector('span'), stmi);
-    }
-    document.getElementById("stat-start").textContent = stst;
+    const totalEl = document.getElementById("stat-total");
+    const maxEl = document.getElementById("stat-max");
+    const minEl = document.getElementById("stat-min");
+    const startEl = document.getElementById("stat-start");
+
+    if (totalEl) fadeText(totalEl, stto);
+    if (maxEl) fadeText(maxEl, stmx);
+    if (minEl) fadeText(minEl, stmi);
+    if (startEl) startEl.textContent = stst;
 }
-
-let lastDisplayedTemp = null;
 
 function updateDisplayedTemp() {
     const { temp, unit } = getUnit();
     const newText = (temp !== null ? temp : 'Ładowanie...') + unit;
+    const tempEl = document.getElementById("temp");
 
-    if (document.getElementById("temp").textContent !== newText) {
-        fadeText(document.getElementById("temp").querySelector('span'), newText);
+    if (tempEl) {
+        fadeText(tempEl, newText);
     }
 }
 
 function updateTemperatureStats() {
     const activeTab = document.querySelector('.Navbar div.active');
+    if (!activeTab) return;
     let datay, title;
 
     if (activeTab.textContent.includes('Dzisiaj')) {
@@ -418,11 +439,13 @@ function updateTemperatureStats() {
         datay = yValues2;
         title = 'W miesiącu';
     } else {
-        document.querySelector('.Time').textContent = '';
-        document.querySelector('.TempTimeStat').innerHTML = '';
+        const timeEl = document.querySelector('.Time');
+        const statEl = document.querySelector('.TempTimeStat');
+        if (timeEl) timeEl.textContent = '';
+        if (statEl) statEl.innerHTML = '';
         return;
     }
-	if (datay.length === 0) {
+	if (!datay || datay.length === 0) {
 		document.querySelector('.TempTimeStat').textContent = 'Brak danych';
 		return;
 	}
@@ -430,6 +453,8 @@ function updateTemperatureStats() {
 	datay = datay.filter(function (el) {
 		return el != null;
 	});
+
+    if (datay.length === 0) return;
 	
     const minTemp = Math.min(...datay);
     const maxTemp = Math.max(...datay);
@@ -444,7 +469,7 @@ function updateTemperatureStats() {
         `<span class="red">MAKS:</span> ${maxTemp}${unit}`;
 
     const tempTimeStatElement = document.querySelector('.TempTimeStat');
-    if (tempTimeStatElement.innerHTML !== newTempStatsHtml) {
+    if (tempTimeStatElement && tempTimeStatElement.innerHTML !== newTempStatsHtml) {
         tempTimeStatElement.classList.add('fade-out');
         setTimeout(() => {
             tempTimeStatElement.innerHTML = newTempStatsHtml;
@@ -476,13 +501,31 @@ function fadeText(element, newText) {
     }, 300); 
 }
 
+const originalUpdateStatsDisplay = updateStatsDisplay;
+updateStatsDisplay = function() {
+    originalUpdateStatsDisplay();
+    updateDateFromESP32();
+};
 
-let date = new Intl.DateTimeFormat("pl-PL", {
-    day: "2-digit", month: "2-digit", year: "numeric"
-}).format(new Date());
+const originalUpdateChartDisplay = updateChartDisplay;
+updateChartDisplay = function() {
+    originalUpdateChartDisplay();
+    if (chaData && chaData.data && chaData.data.length > 0) {
+        const lastEntry = chaData.data[chaData.data.length - 1];
+        if (lastEntry && lastEntry.hour) {
+            const parts = lastEntry.hour.split(' ');
+            if (parts.length > 0) {
+                const dateParts = parts[0].split('-');
+                if (dateParts.length === 3) {
+                    esp32Date = `${dateParts[2]}.${dateParts[1]}.${dateParts[0]}`;
+                    document.getElementById("data").innerHTML = esp32Date;
+                }
+            }
+        }
+    }
+};
 
-document.getElementById("data").innerHTML = date;
-
+setTimeout(updateDateFromESP32, 1000);
 
 function validateDates() {
     const start = document.getElementById('startDate').value;
