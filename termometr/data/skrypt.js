@@ -1,27 +1,73 @@
 let xValues = [];
 let yValues = [];
-
 let xValues2 = [];
 let yValues2 = [];
 
+let chartDataC = [];
+let chartDataF = [];
+let chartDataMonthC = [];
+let chartDataMonthF = [];
+
 let chartInstance = null;
+let useFahrenheit = false;
+let latestTempC = null;
+let latestTempF = null;
+let esp32Date = null;
+
+let statData = {};
+let chaData = {};
+let socket;
+let Bar, Menu;
+
+let isAppReady = false; 
+let hasStatsData = false;
+let hasChartData = false;
+let minimumTimeElapsed = false;
+
+setTimeout(() => {
+    minimumTimeElapsed = true;
+    hideLoadingScreen();
+}, 800); 
+
+function hideLoadingScreen(force = false) {
+    if (force || (minimumTimeElapsed && hasStatsData && hasChartData)) {
+        isAppReady = true;
+        const overlay = document.getElementById('loading-overlay');
+        if (overlay) {
+            overlay.classList.add('fade-away');
+            
+            setTimeout(() => {
+                const bottomSection = document.querySelector('.Bottom');
+                const tempSta = document.querySelector('.TempStat');
+                const timeEl = document.querySelector('.Time');
+                const tempStatsEl = document.querySelector('.TempTimeStat');
+                const tempEl = document.getElementById("temp");
+
+                if (bottomSection) bottomSection.classList.add('ShowOnLoad');
+                if (tempSta) tempSta.classList.add('ShowOnLoad');
+                if (timeEl) timeEl.classList.add('ShowOnLoad');
+                if (tempStatsEl) tempStatsEl.classList.add('ShowOnLoad');
+                if (tempEl) tempEl.classList.add('ShowOnLoad');
+            }, 100); 
+        }
+    }
+}
 
 function getIsolatedPoints(data) {
-  return data.map((value, index) => {
-    if (value === null) return false;
-    const prev = data[index - 1];
-    const next = data[index + 1];
-    return (prev === null || prev === undefined) && 
-           (next === null || next === undefined);
-  });
+    return data.map((value, index) => {
+        if (value === null) return false;
+        const prev = data[index - 1];
+        const next = data[index + 1];
+        return (prev === null || prev === undefined) && 
+               (next === null || next === undefined);
+    });
 }
 
 function createCha(title, datax, datay) {
     const ctx = document.getElementById('TempCha').getContext('2d');
-	
-	const isolatedPoints = getIsolatedPoints(datay);
-	const pointRadius = isolatedPoints.map(isolated => isolated ? 2 : 0);
-	const { unit } = getUnit();
+    const isolatedPoints = getIsolatedPoints(datay);
+    const pointRadius = isolatedPoints.map(isolated => isolated ? 2 : 0);
+    const { unit } = getUnit();
 
     if (chartInstance) {
         chartInstance.destroy();
@@ -39,8 +85,8 @@ function createCha(title, datax, datay) {
                 tension: 0.5,
                 fill: false,
                 pointRadius: pointRadius,
-				pointHitRadius: 5,
-				pointStyle: 'rect'
+                pointHitRadius: 5,
+                pointStyle: 'rect'
             }]
         },
         options: {
@@ -65,19 +111,17 @@ function createCha(title, datax, datay) {
                 }
             },
             plugins: {
-				
-				tooltip: {
-					titleAlign: 'center',
-					callbacks: {
-						title: function(context) {
-							return `${context[0].label}`;
-						},
-						label: function(context) {
-							return `${context.parsed.y}${unit}`;
-						}
-					}
-				},
-
+                tooltip: {
+                    titleAlign: 'center',
+                    callbacks: {
+                        title: function(context) {
+                            return `${context[0].label}`;
+                        },
+                        label: function(context) {
+                            return `${context.parsed.y}${unit}`;
+                        }
+                    }
+                },
                 title: {
                     display: true,
                     text: title,
@@ -95,7 +139,6 @@ function createCha(title, datax, datay) {
     });
 }
 
-let firstLoad = true;
 function toggleCha(title, datay, datax, clickedElement) {
     if (!clickedElement) return;
     document.querySelectorAll('.Navbar div').forEach(el => el.classList.remove('active'));
@@ -111,6 +154,24 @@ function toggleCha(title, datay, datax, clickedElement) {
     const transitionDuration = 300;
     const isSwitchingFromHistoria = searchForm.classList.contains('active');
 
+    if (!isAppReady) {
+        if (title !== 'Historia') {
+            chartsContainer.classList.remove('hidden', 'fade-out-height');
+            summarySection.classList.remove('hidden', 'fade-out-height');
+            if (searchForm.classList.contains('active')) {
+                searchForm.classList.remove('active');
+            }
+            
+            createCha(title, datax, datay);
+            updateTemperatureStats();
+            
+            chartCanvas.style.opacity = '1';
+            tempStatsElement.style.opacity = '1';
+            timeElement.style.opacity = '1';
+        }
+        return; 
+    }
+
     if (title === 'Historia') {
         chartsContainer.classList.add('fade-out-height');
         summarySection.classList.add('fade-out-height');
@@ -121,56 +182,42 @@ function toggleCha(title, datay, datax, clickedElement) {
             searchForm.classList.add('active');
         }, transitionDuration);
     } else {
-    if (isSwitchingFromHistoria && window.scrollY > 150) {
-        window.scrollBy({ top: -100, behavior: 'smooth' });
-    }
+        if (isSwitchingFromHistoria && window.scrollY > 150) {
+            window.scrollBy({ top: -100, behavior: 'smooth' });
+        }
 
-    if (searchForm.classList.contains('active')) {
-        searchForm.classList.remove('active');
-    }
+        if (searchForm.classList.contains('active')) {
+            searchForm.classList.remove('active');
+        }
 
-    chartCanvas.style.opacity = '0';
-    timeElement.style.opacity = '0';
-    tempStatsElement.style.opacity = '0';
+        chartCanvas.style.opacity = '0';
+        timeElement.style.opacity = '0';
+        tempStatsElement.style.opacity = '0';
+        timeElement.classList.add('fade-out');
+        tempStatsElement.classList.add('fade-out');
 
-    setTimeout(() => {
-        chartsContainer.classList.remove('hidden');
-        summarySection.classList.remove('hidden');
-        chartsContainer.classList.remove('fade-out-height');
-        summarySection.classList.remove('fade-out-height');
-
-        if (firstLoad) {
+        setTimeout(() => {
+            chartsContainer.classList.remove('hidden');
+            summarySection.classList.remove('hidden');
+            chartsContainer.classList.remove('fade-out-height');
+            summarySection.classList.remove('fade-out-height');
+            
             createCha(title, datax, datay);
             updateTemperatureStats();
+            
             chartCanvas.style.opacity = '1';
             tempStatsElement.style.opacity = '1';
             timeElement.style.opacity = '1';
-            firstLoad = false;
-        } else {
-            timeElement.classList.add('fade-out');
-            tempStatsElement.classList.add('fade-out');
-
-            setTimeout(() => {
-                createCha(title, datax, datay);
-                updateTemperatureStats();
-                chartCanvas.style.opacity = '1';
-                tempStatsElement.style.opacity = '1';
-                timeElement.style.opacity = '1';
-                timeElement.classList.remove('fade-out');
-                tempStatsElement.classList.remove('fade-out');
-            }, transitionDuration);
-        }
-    }, transitionDuration - 200);
-}
-
+            timeElement.classList.remove('fade-out');
+            tempStatsElement.classList.remove('fade-out');
+        }, transitionDuration - 200);
+    }
 
     if (title === 'Historia') {
         document.getElementById('startDate').value = '';
         document.getElementById('endDate').value = '';
     }
 }
-
-let Bar, Menu;
 
 function handleGlobalInteraction(e) {
     const isClickOutside = e.type === 'click' && !e.target.closest('.OptionsBar');
@@ -183,11 +230,8 @@ function handleGlobalInteraction(e) {
 }
 
 window.addEventListener('DOMContentLoaded', () => { 
-	window.scrollBy({ top: -100, behavior: 'smooth' })
+    window.scrollBy({ top: -100, behavior: 'smooth' });
     const defaultTab = document.querySelector('.Navbar div.active');
-    toggleCha('Dzisiaj', yValues, xValues, defaultTab);
-
-    const time = 50;
 
     Bar = document.querySelector('.OptionsBar');
     Menu = document.getElementById('Options');
@@ -204,15 +248,15 @@ window.addEventListener('DOMContentLoaded', () => {
     document.addEventListener('keydown', handleGlobalInteraction);
 
     document.getElementById("toggleUnit").addEventListener("click", () => {
-			useFahrenheit = !useFahrenheit;
-			localStorage.setItem("tempUnit", useFahrenheit ? "F" : "C");
-			const text = useFahrenheit ? "°F" : "°C";
-			fadeText(document.getElementById("toggleUnit"), text);
-			updateDisplayedTemp();
-			updateStatsDisplay();
-			updateTemperatureStats();
-			updateChartForCurrentUnit();
-			updateMonthlyChartDisplay();
+        useFahrenheit = !useFahrenheit;
+        localStorage.setItem("tempUnit", useFahrenheit ? "F" : "C");
+        const text = useFahrenheit ? "°F" : "°C";
+        fadeText(document.getElementById("toggleUnit"), text);
+        updateDisplayedTemp();
+        updateStatsDisplay();
+        updateTemperatureStats();
+        updateChartForCurrentUnit();
+        updateMonthlyChartDisplay();
     });
 
     const savedUnit = localStorage.getItem("tempUnit");
@@ -225,31 +269,7 @@ window.addEventListener('DOMContentLoaded', () => {
         const toggleSpan = document.querySelector("#toggleUnit span");
         if (toggleSpan) toggleSpan.textContent = "°C";
     }
-
-    const bottomSection = document.querySelector('.Bottom');
-    const TempSta = document.querySelector('.TempStat');
-
-    if (bottomSection) {
-        setTimeout(() => {
-            bottomSection.classList.add('ShowOnLoad');
-        }, time); 
-    }
-    
-    if (TempSta) {
-        setTimeout(() => {
-            TempSta.classList.add('ShowOnLoad');
-        }, time + 100); 
-    }
 });
-
-let useFahrenheit = false;
-let latestTempC = null;
-let latestTempF = null;
-
-
-let statData = {};
-let chaData = {};
-let socket;
 
 try {
     const wsUrl = 'ws://' + location.hostname + ':81/';
@@ -263,11 +283,13 @@ try {
     socket.onmessage = function (event) {
         try {
             const data = JSON.parse(event.data);
-			if (data.type === "chart") {
-				chaData = data;
-				updateChartDisplay();
-				updateMonthlyChartDisplay();
-			}
+            if (data.type === "chart") {
+                chaData = data;
+                updateChartDisplay();
+                updateMonthlyChartDisplay();
+                hasChartData = true;
+                hideLoadingScreen();
+            }
             else if (data.total !== undefined) {
                 statData = data;
                 updateStatsDisplay();
@@ -281,8 +303,19 @@ try {
         }
     };
 
+    socket.onerror = function(e) {
+        console.warn("WebSocket error:", e);
+        hideLoadingScreen(true);
+    };
+
+    socket.onclose = function() {
+        console.warn("WebSocket closed.");
+        hideLoadingScreen(true);
+    };
+
 } catch (e) {
     console.warn("WebSocket not initialized:", e.message);
+    hideLoadingScreen(true);
 }
 
 function getUnit() {
@@ -295,46 +328,47 @@ function getUnit() {
     };
 }
 
-let esp32Date = null;
-
 function updateDateFromESP32() {
     if (esp32Date) {
         document.getElementById("data").innerHTML = esp32Date;
+        hasStatsData = true;
+        hideLoadingScreen();
         return;
     }
 
     if (statData && statData.start) {
         const startDate = statData.start;
-        if (startDate && startDate !== 'unknown') {
+        if (startDate && startDate !== 'unknown' && !startDate.startsWith('1970')) {
             const parts = startDate.split(' ');
             if (parts.length > 0) {
                 const dateParts = parts[0].split('-');
                 if (dateParts.length === 3) {
                     esp32Date = `${dateParts[2]}.${dateParts[1]}.${dateParts[0]}`;
                     document.getElementById("data").innerHTML = esp32Date;
+                    hasStatsData = true;
+                    hideLoadingScreen();
                     return;
                 }
             }
         }
     }
     
-    const fallbackDate = new Intl.DateTimeFormat("pl-PL", {
-        day: "2-digit", month: "2-digit", year: "numeric"
-    }).format(new Date());
-    document.getElementById("data").innerHTML = fallbackDate;
+    if (isAppReady) {
+        const fallbackDate = new Intl.DateTimeFormat("pl-PL", {
+            day: "2-digit", month: "2-digit", year: "numeric"
+        }).format(new Date());
+        document.getElementById("data").innerHTML = fallbackDate;
+    }
 }
-
-let chartDataC = [];
-let chartDataF = [];
 
 function updateChartDisplay() {
     if (!chaData || !chaData.data) return;
 
-		const currentHour = new Date().getHours();
-    const lastHours = [];
+    const currentHour = new Date().getHours();
+    const rolling24Hours = [];
     for (let i = 23; i >= 0; i--) {
         const h = (currentHour - i + 24) % 24;
-        lastHours.push(`${h.toString().padStart(2, '0')}:00`);
+        rolling24Hours.push(`${h.toString().padStart(2, '0')}:00`);
     }
 
     const valuesMapC = {};
@@ -346,9 +380,9 @@ function updateChartDisplay() {
         valuesMapF[hour] = item.avg_f;
     });
 
-    xValues = lastHours;
-    chartDataC = lastHours.map(hour => valuesMapC[hour] !== undefined ? valuesMapC[hour] : null);
-    chartDataF = lastHours.map(hour => valuesMapF[hour] !== undefined ? valuesMapF[hour] : null);
+    xValues = rolling24Hours;
+    chartDataC = rolling24Hours.map(hour => valuesMapC[hour] !== undefined ? valuesMapC[hour] : null);
+    chartDataF = rolling24Hours.map(hour => valuesMapF[hour] !== undefined ? valuesMapF[hour] : null);
 
     updateChartForCurrentUnit();
 }
@@ -357,9 +391,11 @@ function updateChartForCurrentUnit() {
     const { unit } = getUnit();
     yValues = useFahrenheit ? chartDataF : chartDataC;
 
-    const activeLabel = document.querySelector('.Navbar .active')?.innerText;
-    if (activeLabel === 'Dzisiaj') {
-        toggleCha('Dzisiaj', yValues, xValues, document.querySelector('.Navbar .active'));
+    if (yValues && yValues.length > 0 && yValues.some(val => val !== null)) {
+        const activeLabel = document.querySelector('.Navbar .active')?.innerText;
+        if (activeLabel === 'Dzisiaj') {
+            toggleCha('Dzisiaj', yValues, xValues, document.querySelector('.Navbar .active'));
+        }
     }
 }
 
@@ -391,11 +427,13 @@ function updateMonthlyChartDisplay() {
 function updateMonthlyChartForCurrentUnit() {
     const { unit } = getUnit();
     yValues2 = useFahrenheit ? chartDataMonthF : chartDataMonthC;
-	
-    const activeLabel = document.querySelector('.Navbar .active')?.innerText;
-	if (activeLabel === 'W miesiącu') {
-		toggleCha('W miesiącu', yValues2, xValues2, document.querySelector('.Navbar .active'));
-	}
+    
+    if (yValues2 && yValues2.length > 0 && yValues2.some(val => val !== null)) {
+        const activeLabel = document.querySelector('.Navbar .active')?.innerText;
+        if (activeLabel === 'W miesiącu') {
+            toggleCha('W miesiącu', yValues2, xValues2, document.querySelector('.Navbar .active'));
+        }
+    }
 }
 
 function updateStatsDisplay() {
@@ -445,17 +483,16 @@ function updateTemperatureStats() {
         if (statEl) statEl.innerHTML = '';
         return;
     }
-	if (!datay || datay.length === 0) {
-		document.querySelector('.TempTimeStat').textContent = 'Brak danych';
-		return;
-	}
-	
-	datay = datay.filter(function (el) {
-		return el != null;
-	});
+		if (!datay || datay.length === 0) {
+        return;
+    }
+    
+    datay = datay.filter(function (el) {
+        return el != null;
+    });
 
     if (datay.length === 0) return;
-	
+    
     const minTemp = Math.min(...datay);
     const maxTemp = Math.max(...datay);
     const avgTemp = (datay.reduce((a, b) => a + b, 0) / datay.length).toFixed(2);
@@ -486,6 +523,15 @@ function fadeText(element, newText) {
     if (!element) return;
 
     const targetElement = element.querySelector('span') || element;
+        
+    if (targetElement.textContent === newText) {
+        return;
+    }
+
+    if (!isAppReady) {
+        targetElement.textContent = newText;
+        return;
+    }
 
     targetElement.classList.remove('fade-in');
     targetElement.classList.add('fade-out');
@@ -512,20 +558,24 @@ updateChartDisplay = function() {
     originalUpdateChartDisplay();
     if (chaData && chaData.data && chaData.data.length > 0) {
         const lastEntry = chaData.data[chaData.data.length - 1];
-        if (lastEntry && lastEntry.hour) {
+        if (lastEntry && lastEntry.hour && !lastEntry.hour.startsWith('1970')) {
             const parts = lastEntry.hour.split(' ');
             if (parts.length > 0) {
                 const dateParts = parts[0].split('-');
                 if (dateParts.length === 3) {
                     esp32Date = `${dateParts[2]}.${dateParts[1]}.${dateParts[0]}`;
                     document.getElementById("data").innerHTML = esp32Date;
+                    hasStatsData = true;
+                    hideLoadingScreen();
                 }
             }
         }
     }
 };
 
-setTimeout(updateDateFromESP32, 1000);
+setTimeout(() => {
+    hideLoadingScreen(true);
+}, 4000);
 
 function validateDates() {
     const start = document.getElementById('startDate').value;
@@ -540,6 +590,7 @@ function validateDates() {
     }
     return true;
 }
+
 function submitSearch() {
     if (!validateDates()) return;
 
