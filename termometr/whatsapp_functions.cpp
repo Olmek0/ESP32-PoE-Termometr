@@ -95,7 +95,6 @@ void loadAlertConfig() {
 void checkAndSendAlerts(bool useFahrenheit, float currentTemp, String timestamp) {
   if (!alertsEnabled || recipientPhone == "") return;
 
-  // Select the appropriate limits based on the configuration unit
   float highLimit = useFahrenheit ? highTempLimitF : highTempLimit;
   float lowLimit  = useFahrenheit ? lowTempLimitF : lowTempLimit;
   String unitStr  = useFahrenheit ? "°F" : "°C";

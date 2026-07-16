@@ -362,27 +362,16 @@ function updateDateFromESP32() {
 }
 
 function updateChartDisplay() {
-    if (!chaData || !chaData.data) return;
+		if (!chaData || !chaData.data || chaData.data.length === 0) return;
 
-    const currentHour = new Date().getHours();
-    const rolling24Hours = [];
-    for (let i = 23; i >= 0; i--) {
-        const h = (currentHour - i + 24) % 24;
-        rolling24Hours.push(`${h.toString().padStart(2, '0')}:00`);
-    }
-
-    const valuesMapC = {};
-    const valuesMapF = {};
-    chaData.data.forEach(item => {
-        const parts = item.hour.split(' ');
-        const hour = parts.length > 1 ? parts[1] : item.hour;
-        valuesMapC[hour] = item.avg_c;
-        valuesMapF[hour] = item.avg_f;
+    const hours = chaData.data.map(item => {
+        const timePart = item.hour.split(' ')[1]; 
+        return timePart;
     });
 
-    xValues = rolling24Hours;
-    chartDataC = rolling24Hours.map(hour => valuesMapC[hour] !== undefined ? valuesMapC[hour] : null);
-    chartDataF = rolling24Hours.map(hour => valuesMapF[hour] !== undefined ? valuesMapF[hour] : null);
+    chartDataC = chaData.data.map(item => item.avg_c);
+    chartDataF = chaData.data.map(item => item.avg_f);
+    xValues = hours;
 
     updateChartForCurrentUnit();
 }
@@ -400,26 +389,16 @@ function updateChartForCurrentUnit() {
 }
 
 function updateMonthlyChartDisplay() {
-    if (!chaData || !chaData.monthly) return;
+    if (!chaData || !chaData.monthly || chaData.monthly.length === 0) return;
 
-    const today = new Date();
-    const allDays = Array.from({ length: 30 }, (_, i) => {
-        const d = new Date(today.getTime() - (29 - i) * 24 * 3600 * 1000);
-        return d.toLocaleDateString("pl-PL", { day: "2-digit", month: "2-digit" });
-    });
-
-    const valuesMapC = {};
-    const valuesMapF = {};
-    chaData.monthly.forEach(item => {
+    const allDays = chaData.monthly.map(item => {
         const parts = item.day.split('-');
-        const key = `${parts[2]}.${parts[1]}`;
-        valuesMapC[key] = item.avg_c;
-        valuesMapF[key] = item.avg_f;
+        return `${parts[2]}.${parts[1]}`;
     });
 
+    chartDataMonthC = chaData.monthly.map(item => item.avg_c);
+    chartDataMonthF = chaData.monthly.map(item => item.avg_f);
     xValues2 = allDays;
-    chartDataMonthC = allDays.map(day => valuesMapC[day] !== undefined ? valuesMapC[day] : null);
-    chartDataMonthF = allDays.map(day => valuesMapF[day] !== undefined ? valuesMapF[day] : null);
 
     updateMonthlyChartForCurrentUnit();
 }

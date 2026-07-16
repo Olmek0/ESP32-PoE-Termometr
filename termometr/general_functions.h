@@ -11,6 +11,8 @@ extern OneWire oneWire;
 extern DallasTemperature sensors;
 extern String timezone;
 
+extern const int RESET_BUTTON_PIN;
+
 struct TempPair {
   String c;
   String f;
@@ -19,5 +21,12 @@ struct TempPair {
 String getTimestamp();
 TempPair GetTemperature();
 void syncTime();
+
+void checkResetButton();
+
+void saveTimezoneConfig();
+void loadTimezoneConfig();
+void applyTimezone();
+String getAvailableTimezones();
 
 #endif

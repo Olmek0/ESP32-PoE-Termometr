@@ -14,23 +14,23 @@ document.addEventListener("DOMContentLoaded", () => {
   const footer = document.querySelector('footer');
   const controls = document.querySelector('.Controls');
 
-
   const time = 50;
-    if (table) {
-        setTimeout(() => {
-            table.classList.add('ShowOnLoad');
-        }, time); 
-    }
-    if (footer) {
-        setTimeout(() => {
-            footer.classList.add('ShowOnLoad');
-        }, time*4); 
-    }
-    if (controls) {
-        setTimeout(() => {
-            controls.classList.add('ShowOnLoad');
-        }, time*3); 
-    }
+  if (table) {
+      setTimeout(() => {
+          table.classList.add('ShowOnLoad');
+      }, time); 
+  }
+  if (footer) {
+      setTimeout(() => {
+          footer.classList.add('ShowOnLoad');
+      }, time*4); 
+  }
+  if (controls) {
+      setTimeout(() => {
+          controls.classList.add('ShowOnLoad');
+      }, time*3); 
+  }
+  
   if (!start || !end) {
     document.getElementById("history-table").innerHTML = "<tr><td colspan='3'>Nie podano zakresu dat.</td></tr>";
     return;
@@ -52,8 +52,6 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   fetchAllData();
-
-
 });
 
 function fetchAllData() {

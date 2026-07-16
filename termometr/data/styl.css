@@ -375,7 +375,7 @@ a:visited {
     left: 0;
     width: 100vw;
     height: 100vh;
-    background-color: #ffffff; /* Matches your dashboard background */
+    background-color: #ffffff; 
     display: flex;
     flex-direction: column;
     justify-content: center;
@@ -393,7 +393,7 @@ a:visited {
     width: 50px;
     height: 50px;
     border: 5px solid #f3f3f3;
-    border-top: 5px solid #d14e2a; /* Matches your theme red */
+    border-top: 5px solid #d14e2a;
     border-radius: 50%;
     animation: spin 1s linear infinite;
     margin-bottom: 15px;
@@ -404,14 +404,12 @@ a:visited {
     100% { transform: rotate(360deg); }
 }
 
-/* Startup animation classes */
 .Time, .TempTimeStat, #temp {
     opacity: 0;
     transform: translateY(10px);
     transition: opacity 0.6s ease, transform 0.6s ease;
 }
 
-/* Class added by JS when loading screen vanishes */
 .Time.ShowOnLoad, .TempTimeStat.ShowOnLoad, #temp.ShowOnLoad {
     opacity: 1;
     transform: translateY(0);

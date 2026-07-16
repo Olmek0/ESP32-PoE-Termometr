@@ -40,19 +40,18 @@ void logTemperature(float tempC, float tempF, const String& timestamp) {
     return;
   }
 
-  const char* query = "INSERT INTO logs2 (timestamp, temperature_c, temperature_f) VALUES (?, ?, ?);";
+  const char* query = "INSERT INTO logs2 (timestamp, temperature_c, temperature_f) VALUES (datetime('now'), ?, ?);";
 
   sqlite3_stmt* stmt;
   int rc = sqlite3_prepare_v2(db, query, -1, &stmt, NULL);
   if (rc != SQLITE_OK) {
     Serial.printf("[DB ERROR] Prepare failed: %s\n", sqlite3_errmsg(db));
-    sqlite3_close(db); // Always close the DB if prepare fails!
+    sqlite3_close(db);
     return;
   }
 
-  sqlite3_bind_text(stmt, 1, timestamp.c_str(), -1, SQLITE_TRANSIENT);
-  sqlite3_bind_double(stmt, 2, static_cast<double>(tempC));
-  sqlite3_bind_double(stmt, 3, static_cast<double>(tempF));
+  sqlite3_bind_double(stmt, 1, static_cast<double>(tempC));
+  sqlite3_bind_double(stmt, 2, static_cast<double>(tempF));
 
   rc = sqlite3_step(stmt);
   if (rc != SQLITE_DONE) { // Dla INSERT/UPDATE musi być DONE a nie ROW
@@ -78,7 +77,7 @@ void sendStatsOverWebSocket() {
       MIN(temperature_c) AS min_temp,
       MAX(temperature_f) AS max_tempf,
       MIN(temperature_f) AS min_tempf,
-      DATE(MIN(timestamp)) AS first_entry
+      DATE(MIN(timestamp), 'localtime') AS first_entry
     FROM logs2;                                                                       
   )sql";
 
@@ -120,9 +119,11 @@ void sendHistoryJson(const String& start, const String& end) {
     return;
   }
 
-  const char* query = "SELECT timestamp, temperature_c, temperature_f FROM logs2 "
-                 "WHERE DATE(timestamp) >= DATE(?) AND DATE(timestamp) <= DATE(?) "
-                 "ORDER BY timestamp ASC;";
+  const char* query = "SELECT strftime('%Y-%m-%d %H:%M', timestamp, 'localtime') AS local_ts, "
+                    "temperature_c, temperature_f FROM logs2 "
+                    "WHERE date(timestamp, 'localtime') >= date(?) "
+                    "AND date(timestamp, 'localtime') <= date(?) "
+                    "ORDER BY timestamp ASC;";
 
   sqlite3_stmt* stmt;
   int rc = sqlite3_prepare_v2(db, query, -1, &stmt, NULL);
@@ -174,11 +175,11 @@ void sendChartData() {
   // Grupowanie dla godzin
   const char *query24h = R"sql(
     SELECT 
-      strftime('%Y-%m-%d %H:00', timestamp) AS hour,
+      strftime('%Y-%m-%d %H:00', timestamp, 'localtime') AS hour,
       AVG(temperature_c) AS avg_c,
       AVG(temperature_f) AS avg_f
     FROM logs2
-    WHERE timestamp >= datetime('now', '-24 hours')
+    WHERE timestamp >= datetime('now', 'localtime', '-24 hours')
     GROUP BY hour
     ORDER BY hour ASC;
   )sql";
@@ -186,11 +187,11 @@ void sendChartData() {
   // Grupowanie dla dni
   const char *query30d = R"sql(
     SELECT 
-      strftime('%Y-%m-%d', timestamp) AS day,
+      strftime('%Y-%m-%d', timestamp, 'localtime') AS day,
       AVG(temperature_c) AS avg_c,
       AVG(temperature_f) AS avg_f
     FROM logs2
-    WHERE timestamp >= date('now', '-30 days')
+    WHERE timestamp >= date('now', 'localtime', '-30 days')
     GROUP BY day
     ORDER BY day ASC;
   )sql";

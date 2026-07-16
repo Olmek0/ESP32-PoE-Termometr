@@ -214,7 +214,6 @@ document.addEventListener('DOMContentLoaded', function() {
       .then(data => {
         if (data.timezone) {
           const select = document.getElementById('timezoneSelect');
-          // Try to find the matching option
           for (let option of select.options) {
             if (option.value === data.timezone) {
               option.selected = true;
@@ -531,7 +530,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
       if (response.ok) {
         showStatus('timezoneStatus', 'Strefa czasowa zapisana pomyślnie!', 'success');
-        // Reload after a short delay to apply changes
         setTimeout(() => { window.location.reload(); }, 1500);
       } else {
         const errorData = await response.json();
