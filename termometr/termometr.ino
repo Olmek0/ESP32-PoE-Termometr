@@ -13,6 +13,8 @@
 #include <HTTPClient.h>
 #include <UrlEncode.h>
 
+#include <SNMP_Agent.h>
+
 #include "db_functions.h"
 #include "web_functions.h"
 #include "whatsapp_functions.h"
@@ -64,6 +66,25 @@ DallasTemperature sensors(&oneWire);
 
 const int RESET_BUTTON_PIN = 34;
 
+const char *oidTempC = ".1.3.6.1.4.1.119.5.1.2.1.5.1.0";
+const char *oidTempF = ".1.3.6.1.4.1.119.5.1.2.1.5.2.0";
+const char *oidUptime = ".1.3.6.1.2.1.1.3.0";
+const char *oidHostName = ".1.3.6.1.4.1.119.2.1.3.0";
+const char *oidDeviceID = ".1.3.6.1.4.1.54021.1.4.0";
+
+int TempC = 0;
+int TempF = 0;
+uint32_t Uptime = 0;
+std::string HostName = "ESP32-termometer";
+
+
+const char *community = "public";
+
+WiFiUDP udp;
+SNMPAgent snmp(community);
+
+
+
 //// PROGRAM
 
 void setup() {
@@ -109,7 +130,23 @@ void setup() {
     Serial.print(".");
   }
   Serial.println();
+
+  snmp.setUDP(&udp);
+
+  snmp.addIntegerHandler(oidTempC, &TempC);
+  snmp.addIntegerHandler(oidTempF, &TempF);
+  snmp.addTimestampHandler(oidUptime, &Uptime);
+  snmp.addReadOnlyStaticStringHandler(oidHostName, HostName);
+
+  std::string oidStr = ".1.3.6.1.4.1.54021.100.1";
+
+  snmp.addOIDHandler(oidDeviceID, oidStr);
   
+  snmp.sortHandlers();
+
+  snmp.begin();
+  Serial.println("SNMP Agent running on port 161.");
+
   if (!eth_connected) {
     if (!useDHCP) {
       Serial.println("\n[ETH] ⚠️ Static IP failed to connect! Reverting to DHCP...");
@@ -372,7 +409,10 @@ void loop() {
   } else {
     lastDisconnectTime = 0;
   }
-  
+
+  snmp.loop();
+  Uptime = millis() / 10; 
+
   if (millis() - lastDbInsert >= dbInsertInterval) {
     lastDbInsert = millis();
     sensors.requestTemperatures();
@@ -401,5 +441,12 @@ void loop() {
     sensors.requestTemperatures();
     TempPair temp = GetTemperature();
     Serial.println("Temperature: " + temp.c + "°C / " + temp.f + "°F");
+
+    
+    float tempValc = sensors.getTempCByIndex(0);
+    float tempValf = sensors.getTempFByIndex(0);
+
+    TempC = (uint32_t)(tempValc*10);
+    TempF = (uint32_t)(tempValf*10);
   }
 }

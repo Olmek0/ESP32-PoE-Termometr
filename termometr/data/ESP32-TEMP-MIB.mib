@@ -1,0 +1,85 @@
+ESP32-TEMP-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS
+    enterprises, OBJECT-TYPE, MODULE-IDENTITY, Integer32
+        FROM SNMPv2-SMI
+    DisplayString
+        FROM SNMPv2-TC
+    OBJECT-GROUP, MODULE-COMPLIANCE
+        FROM SNMPv2-CONF;
+
+esp32Temp MODULE-IDENTITY
+    LAST-UPDATED "202601010000Z"
+    ORGANIZATION "ESP32 Temp Project"
+    CONTACT-INFO "admin@example.com"
+    DESCRIPTION "Test"
+    REVISION "202601010000Z"
+    DESCRIPTION "Test"
+    ::= { enterprises 54021 }
+
+enterprise119       OBJECT IDENTIFIER ::= { enterprises 119 }
+
+e119Sub2            OBJECT IDENTIFIER ::= { enterprise119 2 }
+deviceBranch        OBJECT IDENTIFIER ::= { e119Sub2 1 }
+
+deviceName OBJECT-TYPE
+    SYNTAX      DisplayString
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "Host"
+    ::= { deviceBranch 3 }
+
+e119Sub5            OBJECT IDENTIFIER ::= { enterprise119 5 }
+e119Sub51           OBJECT IDENTIFIER ::= { e119Sub5 1 }
+e119Sub512          OBJECT IDENTIFIER ::= { e119Sub51 2 }
+e119Sub5121         OBJECT IDENTIFIER ::= { e119Sub512 1 }
+tempMIB             OBJECT IDENTIFIER ::= { e119Sub5121 5 }
+
+tempCelsius OBJECT-TYPE
+    SYNTAX      Integer32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "Temperatura Celcius (x10)"
+    ::= { tempMIB 1 }
+
+tempFahrenheit OBJECT-TYPE
+    SYNTAX      Integer32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "Temperatura Fahrenheit (x10)"
+    ::= { tempMIB 2 }
+
+deviceInfoBranch    OBJECT IDENTIFIER ::= { esp32Temp 1 }
+
+deviceID OBJECT-TYPE
+    SYNTAX      OBJECT IDENTIFIER
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "OID termometru"
+    ::= { deviceInfoBranch 4 }
+
+esp32TempConformance OBJECT IDENTIFIER ::= { esp32Temp 2 }
+esp32TempGroups      OBJECT IDENTIFIER ::= { esp32TempConformance 1 }
+esp32TempCompliances OBJECT IDENTIFIER ::= { esp32TempConformance 2 }
+
+esp32TempGroup OBJECT-GROUP
+    OBJECTS {
+        deviceName,
+        tempCelsius,
+        tempFahrenheit,
+        deviceID
+    }
+    STATUS      current
+    DESCRIPTION "Grupa obiektów dla esp32"
+    ::= { esp32TempGroups 1 }
+
+esp32TempCompliance MODULE-COMPLIANCE
+    STATUS      current
+    DESCRIPTION "Compliance dla esp32"
+    MODULE
+    MANDATORY-GROUPS {
+        esp32TempGroup
+    }
+    ::= { esp32TempCompliances 1 }
+
+END
