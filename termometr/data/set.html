@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Ustawienia</title>
   <style>
+	.container {
+		padding-bottom: 80px;
+	}
 	footer {
 	  position: fixed;
 	  bottom: 0;
@@ -132,8 +135,39 @@
     </div>
     <button id="save-timezone-btn" class="btn">Zapisz strefę czasową</button>
     <div id="timezoneStatus"></div>
+		
+		
+		<div class="section-title"><br>Konfiguracja SNMP</div>
+
+		<div class="form-group">
+				<label for="snmpCommunity">Community String (Read-Only)</label>
+				<input type="text" id="snmpCommunity" placeholder="np. TemperatureMonitor2024!">
+		</div>
+
+		<div class="form-group">
+				<label for="snmpPort">Port SNMP</label>
+				<input type="number" id="snmpPort" value="161" min="1" max ="65535">
+				<span class="helper-text">Domyślnie: 161</span>
+		</div>
+
+		<div class="form-group">
+				<label>Informacje do skonfigurowania w systemie monitoringu:</label>
+				<div class="snmp-info-box">
+						<p><strong>IP:</strong> <span id="ipSnmp"></span></p>
+						<p><strong>Wersja SNMP:</strong> v2c</p>
+				</div>
+		</div>
+		
+		<div class="form-group">
+				<label for="snmpEnabled">Włącz SNMP</label>
+				<input type="checkbox" id="snmpEnabled">
+		</div>
+
+		<button id="save-snmp-btn" class="btn">Zapisz ustawienia SNMP</button>
+		<div id="snmpStatus"></div>
 	
   </div>
+	
 	
   <footer>
     <a href="/">← Powrót do strony głównej</a>
@@ -193,7 +227,6 @@ document.addEventListener('DOMContentLoaded', function() {
 				document.getElementById('dhcp').checked = data.dhcp;
 				document.getElementById('static').checked = !data.dhcp;
 				document.getElementById('static-fields').style.display = data.dhcp ? 'none' : 'block';
-
 				if (!data.dhcp) {
 					document.getElementById('ip').value = data.ip || '';
 					document.getElementById('gateway').value = data.gateway || '';
@@ -201,6 +234,8 @@ document.addEventListener('DOMContentLoaded', function() {
 					document.getElementById('dns1').value = data.dns1 || '';
 					document.getElementById('dns2').value = data.dns2 || '';
 				}
+				
+				document.getElementById('ipSnmp').innerHTML = data.ip;
 			})
 			.catch(err => {
 				showStatus('status', 'Nie udało się pobrać konfiguracji sieci, odśwież stronę', 'warning');
@@ -208,26 +243,6 @@ document.addEventListener('DOMContentLoaded', function() {
 			});
 	}
 	
-	 function loadTimezoneConfig() {
-    fetch('/api/timezone')
-      .then(res => res.json())
-      .then(data => {
-        if (data.timezone) {
-          const select = document.getElementById('timezoneSelect');
-          for (let option of select.options) {
-            if (option.value === data.timezone) {
-              option.selected = true;
-              break;
-            }
-          }
-          showStatus('timezoneStatus', 'Aktualna strefa czasowa załadowana', 'info');
-        }
-      })
-      .catch(err => {
-        showStatus('timezoneStatus', 'Nie udało się pobrać konfiguracji strefy czasowej', 'warning');
-        console.error(err);
-      });
-  }
 
   document.querySelectorAll('input[name="ipmode"]').forEach(radio => {
     radio.addEventListener('change', function() {
@@ -508,7 +523,28 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   });
 	
-	 document.getElementById('save-timezone-btn').addEventListener('click', async function() {
+	function loadTimezoneConfig() {
+    fetch('/api/timezone')
+      .then(res => res.json())
+      .then(data => {
+        if (data.timezone) {
+          const select = document.getElementById('timezoneSelect');
+          for (let option of select.options) {
+            if (option.value === data.timezone) {
+              option.selected = true;
+              break;
+            }
+          }
+          showStatus('timezoneStatus', 'Aktualna strefa czasowa załadowana', 'info');
+        }
+      })
+      .catch(err => {
+        showStatus('timezoneStatus', 'Nie udało się pobrać konfiguracji strefy czasowej', 'warning');
+        console.error(err);
+      });
+  }
+	
+	document.getElementById('save-timezone-btn').addEventListener('click', async function() {
     const select = document.getElementById('timezoneSelect');
     const selectedTimezone = select.value;
     
@@ -543,6 +579,81 @@ document.addEventListener('DOMContentLoaded', function() {
       this.textContent = 'Zapisz strefę czasową';
     }
   });
+	
+	function loadSNMPConfig() {
+		fetch('/api/snmpconfig')
+			.then(res => res.json())
+			.then(data => {
+				document.getElementById('snmpEnabled').checked = data.snmpEnabled || false;
+        document.getElementById('snmpCommunity').value = data.community || '';
+        document.getElementById('snmpPort').value = data.port || '';
+				
+			})
+			.catch(err => {
+				showStatus('status', 'Nie udało się pobrać konfiguracji SNMP, odśwież stronę', 'warning');
+				console.error(err);
+			});
+	}
+	
+	
+	document.getElementById('save-snmp-btn').addEventListener('click', async function() {
+
+		const snmpEnabled = document.getElementById('snmpEnabled').checked;
+		const snmpCommunity = document.getElementById('snmpCommunity').value.trim();
+		const snmpPort = document.getElementById('snmpPort').value.trim();
+	
+    if (!snmpCommunity) {
+      showStatus('snmpStatus', 'Podaj Community String', 'error');
+      return;
+    }
+    if (!snmpPort) {
+      showStatus('snmpStatus', 'Podaj Port', 'error');
+      return;
+    }
+		
+		if (snmpPort > 65535 || snmpPort < 1) {
+      showStatus('snmpStatus', 'Podaj właściwy Port (od 1 do 65525)', 'error');
+      return;
+		
+		}
+		
+		const snmpConfig = {
+			snmpEnabled: snmpEnabled,
+      community: snmpCommunity,
+      port: snmpPort
+    };
+
+    showStatus('snmpStatus', 'Zapisywanie SNMP...', 'info');
+    this.disabled = true;
+    this.textContent = 'Zapisywanie...';
+
+    try {
+      const response = await fetch('/api/snmpconfig', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(snmpConfig)
+      });
+
+      if (response.ok) {
+				if (!snmpEnabled) {
+					showStatus('snmpStatus', 'SNMP zapisany pomyślnie!', 'success');
+				}
+				else {
+					showStatus('snmpStatus', 'SNMP zapisany i włączony pomyślnie!', 'success');
+				}
+        // setTimeout(() => { window.location.reload(); }, 1500);
+      } else {
+        const errorData = await response.json();
+        showStatus('snmpStatus', `Błąd zapisu: ${errorData.error || 'Unknown error'}`, 'error');
+      }
+    } catch (err) {
+      showStatus('snmpStatus', 'Błąd połączenia z serwerem', 'error');
+      console.error(err);
+    } finally {
+      this.disabled = false;
+      this.textContent = 'Zapisz ustawienia SNMP';
+    }
+  });
 
   function showStatus(id, msg, type) {
     const el = document.getElementById(id);
@@ -555,6 +666,8 @@ document.addEventListener('DOMContentLoaded', function() {
   loadAlertConfig();
 	
   loadTimezoneConfig();
+	
+	loadSNMPConfig();
 	
 	setInterval(() => { cooldown('update'); }, 1000);
 	

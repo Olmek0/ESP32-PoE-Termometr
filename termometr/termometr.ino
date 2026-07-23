@@ -77,17 +77,92 @@ int TempF = 0;
 uint32_t Uptime = 0;
 std::string HostName = "ESP32-termometer";
 
+bool snmpEnabled = false;
+String community = "public";
+uint16_t port = 161;
 
-const char *community = "public";
+#define SNMP_CONFIG_FILE "/snmpconfig.txt"
 
+SNMPAgent* snmp = nullptr;
 WiFiUDP udp;
-SNMPAgent snmp(community);
 
+void snmpCheck() {
+    
+  if (snmp != nullptr) {
+    udp.stop();
+    delete snmp;
+    snmp = nullptr;
+    Serial.println("[SNMP] Zatrzymano poprzednią instancję agenta.");
+  }
 
+  if (!snmpEnabled) {
+    Serial.println("[SNMP] Agent jest wyłączony.");
+    return;
+  }
+
+  snmp = new SNMPAgent(community.c_str());
+  snmp->setUDP(&udp);
+
+  snmp->addIntegerHandler(oidTempC, &TempC);
+  snmp->addIntegerHandler(oidTempF, &TempF);
+  snmp->addTimestampHandler(oidUptime, &Uptime);
+  snmp->addReadOnlyStaticStringHandler(oidHostName, HostName);
+
+  std::string oidStr = ".1.3.6.1.4.1.54021.100.1";
+
+  snmp->addOIDHandler(oidDeviceID, oidStr);
+  
+  snmp->sortHandlers();
+  udp.begin(port);
+  snmp->begin();
+  Serial.println("SNMP Agent running on port" + String(port));
+}
+
+void saveSNMPConfig() {
+  File file = LittleFS.open(SNMP_CONFIG_FILE, "w");
+  if (!file) {
+    Serial.println("[SNMP] Failed to open config file for writing");
+    return;
+  }
+  
+  file.println(snmpEnabled ? "1" : "0");
+  file.println(community);
+  file.println(port);
+  
+  file.close();
+  Serial.println("[SNMP] Configuration saved");
+}
+
+void loadSNMPConfig() {
+  if (!LittleFS.exists(SNMP_CONFIG_FILE)) {
+    Serial.println("[SNMP] No config file, using defaults");
+    return;
+  }
+  
+  File file = LittleFS.open(SNMP_CONFIG_FILE, "r");
+  if (!file) {
+    Serial.println("[SNMP] Failed to open config file");
+    return;
+  }
+
+  String tempSNMPStr;
+  
+  tempSNMPStr = file.readStringUntil('\n'); tempSNMPStr.trim(); 
+  snmpEnabled = tempSNMPStr.toInt();
+
+  tempSNMPStr = file.readStringUntil('\n'); tempSNMPStr.trim(); 
+  community = tempSNMPStr;
+  
+  tempSNMPStr = file.readStringUntil('\n'); tempSNMPStr.trim();
+  port = tempSNMPStr.toInt();
+  
+  file.close();
+  Serial.println("[SNMP] Configuration loaded");
+}
 
 //// PROGRAM
 
-void setup() {
+void setup() { 
   Serial.begin(115200);
   delay(200);
 
@@ -114,6 +189,7 @@ void setup() {
 
   loadAlertConfig(); 
   loadIPConfig();
+  loadSNMPConfig();
 
   WiFi.onEvent(WiFiEvent);
   delay(100); 
@@ -131,21 +207,9 @@ void setup() {
   }
   Serial.println();
 
-  snmp.setUDP(&udp);
-
-  snmp.addIntegerHandler(oidTempC, &TempC);
-  snmp.addIntegerHandler(oidTempF, &TempF);
-  snmp.addTimestampHandler(oidUptime, &Uptime);
-  snmp.addReadOnlyStaticStringHandler(oidHostName, HostName);
-
-  std::string oidStr = ".1.3.6.1.4.1.54021.100.1";
-
-  snmp.addOIDHandler(oidDeviceID, oidStr);
-  
-  snmp.sortHandlers();
-
-  snmp.begin();
-  Serial.println("SNMP Agent running on port 161.");
+  if (snmpEnabled) {
+    snmpCheck();
+  }
 
   if (!eth_connected) {
     if (!useDHCP) {
@@ -361,6 +425,40 @@ void setup() {
     
     server.send(200, "application/json", "{\"status\":\"ok\",\"message\":\"Timezone updated\"}");
   });
+
+  
+  server.on("/api/snmpconfig", HTTP_GET, []() {
+    DynamicJsonDocument doc(512); 
+
+    doc["snmpEnabled"] = snmpEnabled;
+    doc["community"] = community;
+    doc["port"] = port;
+
+    String jsonResponse;
+    serializeJson(doc, jsonResponse);
+    server.send(200, "application/json", jsonResponse);
+
+  });
+
+  server.on("/api/snmpconfig", HTTP_POST, []() {
+    if (!server.hasArg("plain")) {
+      server.send(400, "application/json", "{\"error\":\"Bad request\"}");
+      return;
+    }
+
+    String body = server.arg("plain");
+    DynamicJsonDocument doc(512);
+    deserializeJson(doc, body);
+
+    snmpEnabled = doc["snmpEnabled"];
+    community = doc["community"].as<String>();
+    port = doc["port"];
+    
+    saveSNMPConfig();
+    snmpCheck();
+    
+    server.send(200, "application/json", "{\"status\":\"ok\"}");
+  });
   // websockety
 
   webSocket.begin();
@@ -409,8 +507,9 @@ void loop() {
   } else {
     lastDisconnectTime = 0;
   }
-
-  snmp.loop();
+  if (snmpEnabled && snmp != nullptr) {
+    snmp->loop();
+  }
   Uptime = millis() / 10; 
 
   if (millis() - lastDbInsert >= dbInsertInterval) {
@@ -442,7 +541,6 @@ void loop() {
     TempPair temp = GetTemperature();
     Serial.println("Temperature: " + temp.c + "°C / " + temp.f + "°F");
 
-    
     float tempValc = sensors.getTempCByIndex(0);
     float tempValf = sensors.getTempFByIndex(0);
 
